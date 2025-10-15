@@ -35,7 +35,7 @@ def convert_coords(coords):
 
 def get_grip_positions(coords):
     above = coords.copy() + np.array([0, 0, 0.1])
-    on = coords.copy() + np.array([0, 0, 0.03])
+    on = coords.copy() + np.array([0, 0, 0.05])
     return above, on
 
 def get_args() -> argparse.Namespace:
@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     initial_rotation = np.array([[1, 0, 0],
                                 [0, -1, 0],
-                                [0, 0, 1]])
+                                [0, 0, -1]])
 
     initial_position = np.array([0.3, 0.3, 0.5])
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
             moveL(args, robot, T_w_goal)
             print("Has lifted the piece.")
 
-            new_pos = piece_coords[0] + command
+            new_pos = piece_coords + command
             above, on = get_grip_positions(new_pos)
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
