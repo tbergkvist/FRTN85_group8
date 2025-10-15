@@ -34,8 +34,8 @@ def convert_coords(coords):
     return (H @ np.array([x, y, z, 1]))[:3]
 
 def get_grip_positions(coords):
-    above = piece_coords.copy() + np.array([0, 0, 0.1])
-    on = piece_coords.copy() + np.array([0, 0, 0.03])
+    above = piece_coords.copy() - np.array([0, 0, 0.1])
+    on = piece_coords.copy() - np.array([0, 0, 0.03])
     return above, on
 
 def get_args() -> argparse.Namespace:
