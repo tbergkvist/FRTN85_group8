@@ -34,8 +34,8 @@ def convert_coords(coords):
     return (H @ np.array([x, y, z, 1]))[:3]
 
 def get_grip_positions(coords):
-    above = piece_coords.copy() - np.array([0, 0, 0.1])
-    on = piece_coords.copy() - np.array([0, 0, 0.03])
+    above = coords.copy() + np.array([0, 0, 0.1])
+    on = coords.copy() + np.array([0, 0, 0.03])
     return above, on
 
 def get_args() -> argparse.Namespace:
@@ -68,37 +68,46 @@ if __name__ == "__main__":
     while True:
         try:
             command = np.array([float(val) for val in input("Where to move piece: x.x,y.y").split(",")])
-            command = np.append(command, 1)
+            command = np.append(command, 0)
+            print("Will move the piece this much in x and y: ", command)
 
             print("Looking for a chess piece using realsense camera.")
             piece_coords = next(realsense_stream)
             piece_coords = convert_coords(piece_coords)
-            print("Chess piece found at: ", piece_coords, "\nConverting coords to robot frame.")
+            print("Chess piece found at: ", piece_coords)
 
             above, on = get_grip_positions(piece_coords)
-
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
             robot.openGripper()
+            print("Has moved to position above the piece: ", above)
             
             T_w_goal = pin.SE3(initial_rotation, on)
             moveL(args, robot, T_w_goal)
             time.sleep(1)
             robot.closeGripper()
             time.sleep(1)
+            print("Has moved to position on the piece and closed gripper: ", on)
 
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
+            print("Has lifted the piece.")
 
             new_pos = piece_coords[0] + command
             above, on = get_grip_positions(new_pos)
-
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
+            print("Has moved the piece to above new position: ", above)
 
             T_w_goal = pin.SE3(initial_rotation, on)
             moveL(args, robot, T_w_goal)
             robot.openGripper()
+            time.sleep(1)
+            print("Has put down the piece.")
+
+            T_w_goal = pin.SE3(initial_rotation, initial_position)
+            moveL(args, robot, T_w_goal)
+            print("Has moved back to inital pose.")
 
         except KeyboardInterrupt:
             print("Shutting down the chessbot.")
