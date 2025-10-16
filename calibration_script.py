@@ -23,8 +23,8 @@ def get_args() -> argparse.Namespace:
 
 args = get_args()
 robot = getRobotFromArgs(args)
-
 robot._step()
+
 
 realsense_stream = stream_camera_frame_coords()
 
@@ -41,6 +41,7 @@ while True:
             robot_point = np.array([float(val) for val in input("Enter the robot coordinates.").split(",")])
         else:
             input("Measure robot point.")
+            robot._step()
             robot_point = robot.T_w_e.translation
         points_robot.append(robot_point)
         print("Saved pair. Continue to save at least 5 points.")
