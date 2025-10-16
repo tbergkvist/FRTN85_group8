@@ -82,5 +82,5 @@ def stream_camera_frame_coords():
     finally:
         pipeline.stop()
 
-for X, Y, Zm in stream_camera_frame_coords():
-    print(X, Y, Zm)
+#for X, Y, Zm in stream_camera_frame_coords():
+#    print(X, Y, Zm)
