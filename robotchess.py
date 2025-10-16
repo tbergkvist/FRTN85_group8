@@ -19,7 +19,7 @@ def dummy_streamer():
     # simlutate the computer vision stream.
     while True:
         time.sleep(0.5)
-        yield 0.3, 0.3, 0.05
+        yield 0.3, -0.3, 0.05
 
 def convert_coords(coords):
     x, y, z = coords
@@ -35,7 +35,7 @@ def convert_coords(coords):
     return (H @ np.array([x, y, z, 1]))[:3]
 
 def get_grip_positions(coords):
-    above = coords.copy() + np.array([0, 0, 0.2])
+    above = coords.copy() + np.array([0, 0, 0.25])
     on = coords.copy() + np.array([0, 0, 0.15])
     return above, on
 
@@ -70,6 +70,9 @@ if __name__ == "__main__":
     T_w_goal = pin.SE3(initial_rotation, initial_position)
     #moveL(args, robot, T_w_goal)
     compliantMoveL(T_w_goal, args, robot)
+    robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) 
+
+ 
     while True:
         try:
             command = np.array([float(val) for val in input("Where to move piece: x.x,y.y").split(",")])
@@ -91,7 +94,7 @@ if __name__ == "__main__":
             T_w_goal = pin.SE3(initial_rotation, on)
             #moveL(args, robot, T_w_goal)
             compliantMoveL(T_w_goal, args, robot)
-            time.sleep(1)
+            robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  
             robot.closeGripper()
             time.sleep(1)
             print("Has moved to position on the piece and closed gripper: ", on)
@@ -99,7 +102,7 @@ if __name__ == "__main__":
             T_w_goal = pin.SE3(initial_rotation, above)
             #moveL(args, robot, T_w_goal)
             compliantMoveL(T_w_goal, args, robot)
-            print("Has lifted the piece.")
+            print("Has lifted the piece to", above)
             
 
             new_pos = piece_coords + command
@@ -112,14 +115,16 @@ if __name__ == "__main__":
             T_w_goal = pin.SE3(initial_rotation, on)
             #moveL(args, robot, T_w_goal)
             compliantMoveL(T_w_goal, args, robot)
+            robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) 
             robot.openGripper()
             time.sleep(1)
-            print("Has put down the piece.")
+            print("Has put down the piece at: ", on)
 
             T_w_goal = pin.SE3(initial_rotation, initial_position)
             #moveL(args, robot, T_w_goal) 
             compliantMoveL(T_w_goal, args, robot)
-            print("Has moved back to inital pose.")
+            robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) #if 0 vel dont work, use robot.stopRobot() 
+            print("Has moved back to inital pose: ", initial_position)
 
         except KeyboardInterrupt:
             print("Shutting down the chessbot.")
