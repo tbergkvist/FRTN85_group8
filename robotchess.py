@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 import time
 
-#from computer_vision import stream_camera_frame_coords # uncomment when actually running the realsense.
+from computer_vision import stream_camera_frame_coords # uncomment when actually running the realsense.
 
 ########## Note from Teo ###############
 ### This is some real spaghetti code ###
@@ -23,11 +23,12 @@ def dummy_streamer():
 
 def convert_coords(coords):
     x, y, z = coords
-    R = np.array([[1, 0, 0], # MEASURE THIS ONE MANUALLY.
-                [0, 1, 0],
-                [0, 0, 1]])
 
-    t = np.array([0, 0, 0]) # MEASURE THIS ONE MANUALLY.
+    R = np.array([[-0.021493, -0.41323, 0.91037], # MEASURE THIS ONE MANUALLY.
+                [-0.99707, 0.075723, 0.010832],
+                [-0.073413, -0.90747, -0.41365 ]])
+
+    t = np.array([324.42, -463.97, 10.465]) # MEASURE THIS ONE MANUALLY.
 
     H = np.eye(4, dtype=float)
     H[:3, :3] = R
@@ -52,8 +53,9 @@ if __name__ == "__main__":
     robot = getRobotFromArgs(args)
 
     print("Initializing realsense stream.")
-    realsense_stream = dummy_streamer() # stream_camera_frame_coords() # uncomment when actually running the realsense.
+    #realsense_stream = dummy_streamer() # stream_camera_frame_coords() # uncomment when actually running the realsense.
 
+    realsense_stream = stream_camera_frame_coords() # uncomment when actually running the realsense.
     robot._step()
     initial_rotation = np.array([[1, 0, 0],
                                 [0, -1, 0],
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     T_w_goal = pin.SE3(initial_rotation, initial_position)
     #moveL(args, robot, T_w_goal)
     compliantMoveL(T_w_goal, args, robot)
-    robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) 
+    #robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) 
 
  
     while True:
@@ -94,7 +96,7 @@ if __name__ == "__main__":
             T_w_goal = pin.SE3(initial_rotation, on)
             #moveL(args, robot, T_w_goal)
             compliantMoveL(T_w_goal, args, robot)
-            robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  
+            #robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  
             robot.closeGripper()
             time.sleep(1)
             print("Has moved to position on the piece and closed gripper: ", on)
@@ -123,7 +125,7 @@ if __name__ == "__main__":
             T_w_goal = pin.SE3(initial_rotation, initial_position)
             #moveL(args, robot, T_w_goal) 
             compliantMoveL(T_w_goal, args, robot)
-            robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) #if 0 vel dont work, use robot.stopRobot() 
+            #robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) #if 0 vel dont work, use robot.stopRobot() 
             print("Has moved back to inital pose: ", initial_position)
 
         except KeyboardInterrupt:
