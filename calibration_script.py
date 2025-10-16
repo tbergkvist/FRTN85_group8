@@ -86,7 +86,7 @@ H[:3, 3] = t
 
 print("\nHomogeneous transformation (from RealSense to robot frame):")
 print(H)
-H.tofile("./H")
+H.tofile("./H.txt")
 
 if len(points_rs) > 3:
     test_index = -1  # Use the 4th point (index 3) as test point
