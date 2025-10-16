@@ -1,6 +1,7 @@
 from smc import getMinimalArgParser, getRobotFromArgs
 from smc.control.cartesian_space import getClikArgs
 from smc.control.cartesian_space.cartesian_space_point_to_point import moveL
+from smc.control.cartesian_space.cartesian_space_compliant_control import compliantMoveL
 import pinocchio as pin
 
 import argparse
@@ -34,8 +35,8 @@ def convert_coords(coords):
     return (H @ np.array([x, y, z, 1]))[:3]
 
 def get_grip_positions(coords):
-    above = coords.copy() + np.array([0, 0, 0.1])
-    on = coords.copy() + np.array([0, 0, 0.05])
+    above = coords.copy() + np.array([0, 0, 0.2])
+    on = coords.copy() + np.array([0, 0, 0.15])
     return above, on
 
 def get_args() -> argparse.Namespace:
@@ -53,18 +54,22 @@ if __name__ == "__main__":
     print("Initializing realsense stream.")
     realsense_stream = dummy_streamer() # stream_camera_frame_coords() # uncomment when actually running the realsense.
 
-
+    robot._step()
     initial_rotation = np.array([[1, 0, 0],
                                 [0, -1, 0],
                                 [0, 0, -1]])
-
-    initial_position = np.array([0.3, 0.3, 0.5])
-
+    if(args.start_from_current_pose):
+        initial_position = robot.T_w_e.translation
+    else:   
+        initial_position = np.array([0.3, 0.3, 0.5])
+    
+    print("Initial position of robot")    
+    print(initial_position)
 
     print("Moving to initial pose.")
     T_w_goal = pin.SE3(initial_rotation, initial_position)
-    moveL(args, robot, T_w_goal)
-
+    #moveL(args, robot, T_w_goal)
+    compliantMoveL(T_w_goal, args, robot)
     while True:
         try:
             command = np.array([float(val) for val in input("Where to move piece: x.x,y.y").split(",")])
@@ -78,36 +83,42 @@ if __name__ == "__main__":
 
             above, on = get_grip_positions(piece_coords)
             T_w_goal = pin.SE3(initial_rotation, above)
-            moveL(args, robot, T_w_goal)
+            #moveL(args, robot, T_w_goal)
+            compliantMoveL(T_w_goal, args, robot)
             robot.openGripper()
             print("Has moved to position above the piece: ", above)
             
             T_w_goal = pin.SE3(initial_rotation, on)
-            moveL(args, robot, T_w_goal)
+            #moveL(args, robot, T_w_goal)
+            compliantMoveL(T_w_goal, args, robot)
             time.sleep(1)
             robot.closeGripper()
             time.sleep(1)
             print("Has moved to position on the piece and closed gripper: ", on)
 
             T_w_goal = pin.SE3(initial_rotation, above)
-            moveL(args, robot, T_w_goal)
+            #moveL(args, robot, T_w_goal)
+            compliantMoveL(T_w_goal, args, robot)
             print("Has lifted the piece.")
             
 
             new_pos = piece_coords + command
             above, on = get_grip_positions(new_pos)
             T_w_goal = pin.SE3(initial_rotation, above)
-            moveL(args, robot, T_w_goal)
+            #moveL(args, robot, T_w_goal)
+            compliantMoveL(T_w_goal, args, robot)
             print("Has moved the piece to above new position: ", above)
 
             T_w_goal = pin.SE3(initial_rotation, on)
-            moveL(args, robot, T_w_goal)
+            #moveL(args, robot, T_w_goal)
+            compliantMoveL(T_w_goal, args, robot)
             robot.openGripper()
             time.sleep(1)
             print("Has put down the piece.")
 
             T_w_goal = pin.SE3(initial_rotation, initial_position)
-            moveL(args, robot, T_w_goal)
+            #moveL(args, robot, T_w_goal) 
+            compliantMoveL(T_w_goal, args, robot)
             print("Has moved back to inital pose.")
 
         except KeyboardInterrupt:
