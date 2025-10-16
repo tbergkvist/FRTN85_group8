@@ -61,22 +61,23 @@ centroid_robot = np.mean(points_robot, axis=0)
 rs_centered = points_rs - centroid_rs
 robot_centered = points_robot - centroid_robot
 
-# Compute covariance matrix
-H = rs_centered.T @ robot_centered
+# Compute covariance matrix (robot ← rs)
+H = robot_centered.T @ rs_centered
 
 # Singular Value Decomposition
 U, S, Vt = np.linalg.svd(H)
 
 # Compute rotation
-R = Vt.T @ U.T
+R = U @ Vt
 
-# Handle reflection (determinant negative)
+# Handle possible reflection
 if np.linalg.det(R) < 0:
-    Vt[-1, :] *= -1
-    R = Vt.T @ U.T
+    U[:, -1] *= -1
+    R = U @ Vt
 
 # Compute translation
 t = centroid_robot - R @ centroid_rs
+
 
 # Compose homogeneous transformation matrix
 H = np.eye(4)
