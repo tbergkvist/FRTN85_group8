@@ -92,6 +92,7 @@ if __name__ == "__main__":
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
             print("Has lifted the piece.")
+            
 
             new_pos = piece_coords + command
             above, on = get_grip_positions(new_pos)
