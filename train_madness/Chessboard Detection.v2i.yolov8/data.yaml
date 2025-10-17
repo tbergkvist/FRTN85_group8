@@ -1,0 +1,15 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['chessboard']
+
+kpt_shape: [4, 2]
+
+roboflow:
+  workspace: chessboarddetection
+  project: chessboard-detection-x5kxd
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/chessboarddetection/chessboard-detection-x5kxd/dataset/2
