@@ -227,7 +227,7 @@ def main():
     print(H)
 
     # Persist results
-    np.savetxt("./H.txt", H, fmt="%.9f")
+    H.tofile("./H.txt")
     print('Saved H to "./H.txt".')
 
     # Quick hold out test if we have 4 or more
