@@ -194,8 +194,18 @@ def main():
                     )
                 else:
                     robot._step()
-                    # Expecting a 3-vector translation in meters
-                    robot_point = np.array(robot.T_w_e.translation).astype(float)
+                    # Get homogeneous 4x4 for flange pose
+                    T_w_e = np.array(robot.T_w_e)  # ensure this is 4x4; if it's an SE3, use .homogeneous
+                    print(f"T_w_e is currently: {T_w_e}")
+
+                    L = 0.12  # meters (12 cm)
+                    p_tool_e = np.array([0.0, 0.0, L, 1.0])  # tool tip in end-effector frame
+
+                    # Tool tip in world frame
+                    p_tool_w = (T_w_e @ p_tool_e)[:3]  # take only x,y,z
+
+                    robot_point = p_tool_w
+
                 points_robot.append(robot_point)
                 print(f"Robot point {len(points_robot)}: {robot_point}")
                 print(f"Saved pair {len(points_rs)}. Collect at least {args.min_pairs} pairs.")
