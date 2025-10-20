@@ -12,7 +12,7 @@ def dummy_streamer():
     # Emulate the computer vision stream.
     while True:
         time.sleep(0.5)
-        yield 0.3, -0.3, 0.05
+        yield {"class": [1], "confidence": [0.9], "center_point": [0.1, 0.1, 0.1], "BBox": [0.1, 0.1, 0.2, 0.2], "data": True, "color_frame": np.zeros((640, 360))}
 
 
 def convert_coords(coords, from_file=False):
@@ -61,6 +61,21 @@ def get_args() -> argparse.Namespace:
     args = parser.parse_args()
     return args
 
+piece2number = {
+    "black pawn": 0,
+    "white pawn": 1,
+    "black knight": 2,
+    "white knight": 3,
+    "black bishop": 4,
+    "white bishop": 5,
+    "black rook": 6,
+    "white rook": 7,
+    "black queen": 8,
+    "white queen": 9,
+    "black king": 10,
+    "white king": 11
+}
+
 
 if __name__ == "__main__":
     args = get_args()
@@ -69,7 +84,7 @@ if __name__ == "__main__":
     print("Initializing realsense stream.")
     if args.realsense:
         from computer_vision import stream_camera_frame_coords # Need the realsense sdk for this import.
-        realsense_stream = stream_camera_frame_coords() 
+        realsense_stream = stream_camera_frame_coords(multiple_pieces=True) 
     else:
         realsense_stream = dummy_streamer() 
     
@@ -95,14 +110,24 @@ if __name__ == "__main__":
  
     while True:
         try:
+            piece = False
+            while not piece:
+                try:
+                    piece = piece2number[input("Piece to move: ").lower()]
+                except:
+                    print("Bad input.")
             command = np.array([float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")])
             command = np.append(command, 0)
             print("Will move the piece this much in x and y: ", command)
 
             print("Looking for a chess piece using realsense camera.")
-            piece_coords = next(realsense_stream)
-            piece_coords = convert_coords(piece_coords, "./H.txt")
-            print("Chess piece found at: ", piece_coords)
+            for i in range(5):
+                pieces = next(realsense_stream)
+                if piece in pieces["class"]:
+                    index = pieces["class"].index(piece)
+                    piece_coords = pieces["center_point"][index]
+                    piece_coords = convert_coords(piece_coords, "./H.txt")
+                    print("Chess piece found at: ", piece_coords)
 
             above, on, place = get_grip_positions(piece_coords)
             T_w_goal = pin.SE3(initial_rotation, above)
