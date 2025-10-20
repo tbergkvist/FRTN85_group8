@@ -96,8 +96,7 @@ def stream_camera_frame_coords(vis=False):
                 cv2.imshow("Detection", color)
                 if cv2.waitKey(1) == 27:  # ESC key to quit
                     break
-                yield X, Y, Zm, color
-            yield X, Y, Zm
+            yield X, Y, Zm, color
     finally:
         pipeline.stop()
 
