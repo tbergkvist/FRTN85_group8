@@ -18,10 +18,11 @@ def dummy_streamer():
 def convert_coords(coords, from_file=False):
     # Measure these using the calibration_script.
 
-    if from_file:
-        return np.fromfile(from_file)
-
     x, y, z = coords
+    H = np.fromfile(from_file)
+    H.resize(4, 4)
+    if from_file:
+        return (H @ np.array([x, y, z, 1]))[:3]
 
     R = np.array([[1, 0, 0],
                 [0, 1, 0],
@@ -63,7 +64,7 @@ def get_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = get_args()
     robot = getRobotFromArgs(args)
-
+ 
     print("Initializing realsense stream.")
     if args.realsense:
         from computer_vision import stream_camera_frame_coords # Need the realsense sdk for this import.
@@ -96,7 +97,7 @@ if __name__ == "__main__":
 
             print("Looking for a chess piece using realsense camera.")
             piece_coords = next(realsense_stream)
-            piece_coords = convert_coords(piece_coords)
+            piece_coords = convert_coords(piece_coords, "./H.txt")
             print("Chess piece found at: ", piece_coords)
 
             above, on = get_grip_positions(piece_coords)

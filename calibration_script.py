@@ -24,6 +24,7 @@ def get_args() -> argparse.Namespace:
 args = get_args()
 robot = getRobotFromArgs(args)
 robot._step()
+robot.setFreedrive()
 
 
 realsense_stream = stream_camera_frame_coords()
@@ -36,6 +37,7 @@ while True:
         print(f"Collect {len(points_rs)}st point.")
         input("Enter to collect point from realsense.")
         points_rs.append(next(realsense_stream))
+        print(points_rs[-1])
         print("Move robot to the chess piece position.")
         if args.manual:
             robot_point = np.array([float(val) for val in input("Enter the robot coordinates.").split(",")])
@@ -44,6 +46,7 @@ while True:
             robot._step()
             robot_point = robot.T_w_e.translation
         points_robot.append(robot_point)
+        print(robot_point)
         print("Saved pair. Continue to save at least 5 points.")
     except KeyboardInterrupt:
         break
@@ -95,10 +98,8 @@ if len(points_rs) > 3:
     # Get the test points
     p_rs_test = np.append(points_rs[test_index], 1)  # Homogeneous form
     p_robot_actual = points_robot[test_index]
-
     # Predicted point in robot frame
     p_robot_pred = (H @ p_rs_test)[:3]
-
     # Compute Euclidean error
     error = np.linalg.norm(p_robot_pred - p_robot_actual)
 
