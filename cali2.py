@@ -148,7 +148,6 @@ def main():
 
     print("Instructions:")
     print(f"- Click a pixel to select \x28x, y\x29, press 'c' to capture the RealSense point.")
-    print(f"- Then follow the prompt to record the corresponding robot point.")
     print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
 
     try:
@@ -188,14 +187,12 @@ def main():
                 points_rs.append(pts_rs)
                 print(f"RealSense point {len(points_rs)}: {pts_rs}")
 
-                print("Move robot to the corresponding chess piece position.")
                 if args.manual:
                     robot_point = np.array(
                         [float(val) for val in input("Enter robot coordinates x,y,z in meters: ").split(",")],
                         dtype=float
                     )
                 else:
-                    input("Position robot and press Enter to measure.")
                     robot._step()
                     # Expecting a 3-vector translation in meters
                     robot_point = np.array(robot.T_w_e.translation).astype(float)
