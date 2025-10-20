@@ -1,6 +1,7 @@
 from smc import getMinimalArgParser, getRobotFromArgs
 from smc.control.cartesian_space import getClikArgs
-from smc.control.cartesian_space.cartesian_space_compliant_control import compliantMoveL
+#from smc.control.cartesian_space.cartesian_space_compliant_control import compliantMoveL
+from smc.control.cartesian_space.cartesian_space_point_to_point import moveL
 import pinocchio as pin
 
 import argparse
@@ -41,11 +42,6 @@ def get_grip_positions(coords):
     on = coords.copy() + np.array([0.01, 0, 0.15])
     place = coords.copy() + np.array([0.01, 0, 0.155])
     return above, on, place
-
-
-def zero_robot_vel():
-    if args.real:
-        robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) 
 
 
 def get_args() -> argparse.Namespace:
@@ -116,8 +112,8 @@ if __name__ == "__main__":
 
     print("Moving to initial pose.")
     T_w_goal = pin.SE3(initial_rotation, initial_position)
-    compliantMoveL(T_w_goal, args, robot)
-    zero_robot_vel()
+    moveL(args, robot, T_w_goal)
+
  
     while True:
         try:
@@ -149,37 +145,35 @@ if __name__ == "__main__":
                 continue
             above, on, place = get_grip_positions(piece_coords)
             T_w_goal = pin.SE3(initial_rotation, above)
-            compliantMoveL(T_w_goal, args, robot)
+            moveL(args, robot, T_w_goal)
             robot.openGripper()
             print("Has moved to position above the piece: ", above)
             
             T_w_goal = pin.SE3(initial_rotation, on)
-            compliantMoveL(T_w_goal, args, robot)
-            zero_robot_vel()
+            moveL(args, robot, T_w_goal)
+
             robot.closeGripper()
             time.sleep(1)
             print("Has moved to position on the piece and closed gripper: ", on)
 
             T_w_goal = pin.SE3(initial_rotation, above)
-            compliantMoveL(T_w_goal, args, robot)
+            moveL(args, robot, T_w_goal)
             print("Has lifted the piece to", above)
 
             new_pos = piece_coords + command
             above, on, place = get_grip_positions(new_pos)
             T_w_goal = pin.SE3(initial_rotation, above)
-            compliantMoveL(T_w_goal, args, robot)
+            moveL(args, robot, T_w_goal)
             print("Has moved the piece to above new position: ", above)
 
             T_w_goal = pin.SE3(initial_rotation, place)
-            compliantMoveL(T_w_goal, args, robot)
-            zero_robot_vel()
+            moveL(args, robot, T_w_goal)
             robot.openGripper()
             time.sleep(1)
             print("Has put down the piece at: ", place)
 
             T_w_goal = pin.SE3(initial_rotation, initial_position)
-            compliantMoveL(T_w_goal, args, robot)
-            zero_robot_vel()
+            moveL(args, robot, T_w_goal)
             print("Has moved back to inital pose: ", initial_position)
 
         except KeyboardInterrupt:
