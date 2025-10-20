@@ -207,11 +207,11 @@ def main():
 
 
 
-    print("Instructions:")
-    print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
-    print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
     
-    try:
+        print("Instructions:")
+        print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
+        print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
+        
         while True:
             frames = pipeline.wait_for_frames()
             aligned = align.process(frames)
