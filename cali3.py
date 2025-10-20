@@ -140,10 +140,11 @@ def main():
     points_robot = []
 
     gui = ClickGUI("RealSense Color")
+    print("Instructions:")
+    print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
+    print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
     
-    # --- Now define 4 corners, same style as above ---
-    print("\nNow define the four corners on the RealSense image.")
-   # pipeline.start(config)
+    print("\nDefine the four corners on the RealSense image.")
     corners_px = []
     corners_rs = []
 
@@ -193,7 +194,10 @@ def main():
                 gui.reset()
 
             elif key == ord('q'):
-                print("Aborting corner selection.")
+                if len(corners_rs) < 4:
+                    print(f"Need at least 4 corner points. Currently: {len(corners_rs)}")
+                    continue
+                print("Finishing collection of corner points.")
                 break
 
         print("\nSelected corners (pixels):", corners_px)
@@ -201,15 +205,11 @@ def main():
         for i, c in enumerate(corners_rs):
             print(f"  Corner {i+1}: {c}")
 
-    finally:
-        pipeline.stop()
-        cv2.destroyAllWindows()
 
 
     print("Instructions:")
     print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
     print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
-    pipeline.start(config)
     
     try:
         while True:
@@ -290,7 +290,7 @@ def main():
     print(H)
 
     H.tofile("./H2.txt")
-    print('Saved H to "./H.txt".')
+    print('Saved H to "./H2.txt".')
 
     if len(points_rs) > 3:
         test_index = -1
