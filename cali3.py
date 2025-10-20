@@ -136,20 +136,18 @@ def main():
 
     pipeline, align, color_intr, config = enable_realsense()
 
-    points_rs = []
-    points_robot = []
-
     gui = ClickGUI("RealSense Color")
+    
     print("Instructions:")
     print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
-    print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
+    print(f"- Press 'q' anytime to finish and solve once you have 4 corners.")
     
     print("\nDefine the four corners on the RealSense image.")
     corners_px = []
     corners_rs = []
 
     try:
-        while len(corners_px) < 4:
+        while True:
             frames = pipeline.wait_for_frames()
             aligned = align.process(frames)
             depth_frame = aligned.get_depth_frame()
@@ -192,9 +190,9 @@ def main():
                 corners_rs.append((X, Y, Zm))
                 print(f"Corner {len(corners_px)}: px=({x},{y}) -> RS=({X:.4f}, {Y:.4f}, {Zm:.4f})")
                 gui.reset()
-
+        
             elif key == ord('q'):
-                if len(corners_rs) < 4:
+                if len(corners_px) < 4:
                     print(f"Need at least 4 corner points. Currently: {len(corners_rs)}")
                     continue
                 print("Finishing collection of corner points.")
@@ -205,17 +203,17 @@ def main():
         for i, c in enumerate(corners_rs):
             print(f"  Corner {i+1}: {c}")
 
-
-
-    
+        #-------------------- ROBOT POINTS ------------------------ 
         print("Instructions:")
         print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
         print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
-        
+     
+        points_rs = []
+        points_robot = []
+   
         while True:
             frames = pipeline.wait_for_frames()
             aligned = align.process(frames)
-
             depth_frame = aligned.get_depth_frame()
             color_frame = aligned.get_color_frame()
             if not depth_frame or not color_frame:
@@ -279,18 +277,31 @@ def main():
     # --- Compute transformation ---
     points_rs = np.array(points_rs, dtype=float)
     points_robot = np.array(points_robot, dtype=float)
-
     if len(points_rs) < 3:
         raise ValueError("At least 3 non collinear points are required to compute a transformation.")
 
     H = solve_rigid_transform(points_rs, points_robot)
-
+    
     print("\nHomogeneous transformation (from RealSense to robot frame):")
     np.set_printoptions(precision=6, suppress=True)
     print(H)
 
-    H.tofile("./H2.txt")
-    print('Saved H to "./H2.txt".')
+    H.tofile("./H.txt")
+    print('Saved H to "./H.txt".')
+
+    # --- Transform corner coordinates from rs to robot frame ---
+    corners_rs = np.array(corners_rs, dtype=float)
+    ones = np.ones((corners_rs.shape[0], 1))
+    corners_rs_h = np.hstack([corners_rs, ones])
+    corners_transformed_h = (H @ corners_rs_h.T).T
+    corners_transformed = corners_transformed_h[:, :3]
+
+    print("\nTransformed corner points")
+    for i, p in enumerate(corners_transformed, 1)
+        print(f"Corner {i}: {p}")
+    
+    corners_transformed.tofile("./corners.txt")
+    print('Saved corners to "./corners.txt".')
 
     if len(points_rs) > 3:
         test_index = -1
