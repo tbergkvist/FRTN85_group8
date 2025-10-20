@@ -95,7 +95,7 @@ if __name__ == "__main__":
     print("Initializing realsense stream.")
     if args.realsense:
         from computer_vision import stream_camera_frame_coords # Need the realsense sdk for this import.
-        realsense_stream = stream_camera_frame_coords(multiple_pieces=True) 
+        realsense_stream = stream_camera_frame_coords(multiple_pieces=True, piece_conf_thres=0.4) 
     else:
         realsense_stream = dummy_streamer() 
     
