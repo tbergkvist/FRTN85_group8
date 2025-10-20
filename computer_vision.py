@@ -120,7 +120,7 @@ def stream_camera_frame_coords(multiple_pieces=False, piece_conf_thres=0.7):
                 u, v = pieces["center_point"][i]
                 x, y, z = pixel2coord(depth_frame, u, v, color_intr)
                 pieces["center_point"][i] = [x, y, z]
-                pieces["color_frame"] = color_frame
+            pieces["color_frame"] = color
             yield pieces
             
     finally:
