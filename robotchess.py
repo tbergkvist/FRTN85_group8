@@ -37,9 +37,10 @@ def convert_coords(coords, from_file=False):
 
 
 def get_grip_positions(coords):
-    above = coords.copy() + np.array([0, 0, 0.25])
-    on = coords.copy() + np.array([0, 0, 0.15])
-    return above, on
+    above = coords.copy() + np.array([0.01, 0, 0.25])
+    on = coords.copy() + np.array([0.01, 0, 0.15])
+    place = coords.copy() + np.array([0.01, 0, 0.155])
+    return above, on, place
 
 
 def zero_robot_vel():
@@ -100,7 +101,7 @@ if __name__ == "__main__":
             piece_coords = convert_coords(piece_coords, "./H.txt")
             print("Chess piece found at: ", piece_coords)
 
-            above, on = get_grip_positions(piece_coords)
+            above, on, place = get_grip_positions(piece_coords)
             T_w_goal = pin.SE3(initial_rotation, above)
             compliantMoveL(T_w_goal, args, robot)
             robot.openGripper()
@@ -119,17 +120,17 @@ if __name__ == "__main__":
             
 
             new_pos = piece_coords + command
-            above, on = get_grip_positions(new_pos)
+            above, on, place = get_grip_positions(new_pos)
             T_w_goal = pin.SE3(initial_rotation, above)
             compliantMoveL(T_w_goal, args, robot)
             print("Has moved the piece to above new position: ", above)
 
-            T_w_goal = pin.SE3(initial_rotation, on)
+            T_w_goal = pin.SE3(initial_rotation, place)
             compliantMoveL(T_w_goal, args, robot)
             zero_robot_vel()
             robot.openGripper()
             time.sleep(1)
-            print("Has put down the piece at: ", on)
+            print("Has put down the piece at: ", place)
 
             T_w_goal = pin.SE3(initial_rotation, initial_position)
             compliantMoveL(T_w_goal, args, robot)
