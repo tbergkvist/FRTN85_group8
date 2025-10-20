@@ -53,7 +53,7 @@ def enable_realsense():
 class ClickGUI:
     def __init__(self, window_name="RealSense Color"):
         self.window = window_name
-        self.click = None
+        self.click = None  # (x, y)
         self.history = deque(maxlen=50)
         cv2.namedWindow(self.window, cv2.WINDOW_NORMAL)
         cv2.setMouseCallback(self.window, self._on_mouse)
@@ -63,64 +63,24 @@ class ClickGUI:
             self.click = (x, y)
             self.history.append((x, y))
 
-    def draw_overlay(self, frame):
+    def draw_overlay(self, frame, extra_text=None):
         if self.click is not None:
             x, y = self.click
             cv2.circle(frame, (x, y), 5, (0, 255, 0), 2)
             cv2.putText(frame, f"Click: ({x}, {y})", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        cv2.putText(frame, "Controls: click to select, 'c'=capture, 'r'=reset, 'q'=finish",
-                    (10, frame.shape[0]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (240, 240, 240), 2)
+        overlay = "Controls: click to select, 'c'=capture, 'r'=reset, 'q'=finish"
+        if extra_text:
+            overlay = f"{extra_text} | {overlay}"
+        cv2.putText(frame, overlay,
+                    (10, frame.shape[0]-10), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6, (240, 240, 240), 2)
 
     def reset(self):
         self.click = None
 
     def get_click(self):
         return self.click
-
-    def get_multiple_clicks(self, n, frame_source_fn, depth_fn, intr, depth_win=5):
-        """
-        Let user click `n` times on live frames.
-        Returns:
-          - clicks_px: list of (x, y) pixel coordinates
-          - clicks_rs: list of (X, Y, Z) RealSense 3D coordinates
-        """
-        clicks_px = []
-        clicks_rs = []
-        print(f"Click {n} corners in order (top-left to bottom-right, or your convention).")
-        while len(clicks_px) < n:
-            color_frame, depth_frame = frame_source_fn()
-            vis = color_frame.copy()
-            for i, (x, y) in enumerate(clicks_px):
-                cv2.circle(vis, (x, y), 6, (0, 255, 255), -1)
-                cv2.putText(vis, f"{i+1}", (x+8, y-8),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-            self.draw_overlay(vis)
-            cv2.imshow(self.window, vis)
-            key = cv2.waitKey(1) & 0xFF
-
-            if self.click is not None:
-                x, y = self.click
-                Z = depth_fn(depth_frame, x, y, win=depth_win)
-                if Z is None or Z <= 0.0:
-                    print(f"Invalid depth at ({x},{y}). Try again.")
-                    self.click = None
-                    continue
-                X, Y, Zm = rs.rs2_deproject_pixel_to_point(intr, [float(x), float(y)], float(Z))
-                clicks_px.append((x, y))
-                clicks_rs.append((X, Y, Zm))
-                print(f"Corner {len(clicks_px)}: px=({x},{y}) → RS3D=({X:.4f}, {Y:.4f}, {Zm:.4f})")
-                self.click = None
-
-            if key == ord('r'):
-                print("Reset corners.")
-                clicks_px.clear()
-                clicks_rs.clear()
-            elif key == ord('q'):
-                print("Aborting corner selection.")
-                break
-
-        return clicks_px, clicks_rs
 
 
 def depth_at_pixel_or_neighborhood(depth_frame, x, y, win=5):
@@ -180,11 +140,77 @@ def main():
     points_robot = []
 
     gui = ClickGUI("RealSense Color")
+    
+    # --- Now define 4 corners, same style as above ---
+    print("\nNow define the four corners on the RealSense image.")
+    pipeline.start(config)
+    corners_px = []
+    corners_rs = []
+
+    try:
+        while len(corners_px) < 4:
+            frames = pipeline.wait_for_frames()
+            aligned = align.process(frames)
+            depth_frame = aligned.get_depth_frame()
+            color_frame = aligned.get_color_frame()
+            if not depth_frame or not color_frame:
+                continue
+
+            color = np.asanyarray(color_frame.get_data())
+            vis = color.copy()
+
+            # Draw already captured corners
+            for i, (x, y) in enumerate(corners_px):
+                cv2.circle(vis, (x, y), 6, (0, 255, 255), -1)
+                cv2.putText(vis, f"{i+1}", (x+10, y-10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+
+            gui.draw_overlay(vis, extra_text=f"Corners captured: {len(corners_px)}/4")
+            cv2.imshow(gui.window, vis)
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord('r'):
+                print("Reset corners.")
+                corners_px.clear()
+                corners_rs.clear()
+                gui.reset()
+
+            elif key == ord('c'):
+                click = gui.get_click()
+                if click is None:
+                    print("No click selected. Please click on the image first.")
+                    continue
+                x, y = int(click[0]), int(click[1])
+                Z = depth_at_pixel_or_neighborhood(depth_frame, x, y, win=args.depth_win)
+                if Z is None or Z <= 0.0:
+                    print("Invalid depth at corner. Try another pixel.")
+                    continue
+
+                X, Y, Zm = rs.rs2_deproject_pixel_to_point(color_intr, [float(x), float(y)], float(Z))
+                corners_px.append((x, y))
+                corners_rs.append((X, Y, Zm))
+                print(f"Corner {len(corners_px)}: px=({x},{y}) -> RS=({X:.4f}, {Y:.4f}, {Zm:.4f})")
+                gui.reset()
+
+            elif key == ord('q'):
+                print("Aborting corner selection.")
+                break
+
+        print("\nSelected corners (pixels):", corners_px)
+        print("Selected corners (3D RealSense):")
+        for i, c in enumerate(corners_rs):
+            print(f"  Corner {i+1}: {c}")
+
+    finally:
+        pipeline.stop()
+        cv2.destroyAllWindows()
+
 
     print("Instructions:")
     print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
     print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
-
+    pipeline.start(config)
+    
     try:
         while True:
             frames = pipeline.wait_for_frames()
@@ -196,7 +222,6 @@ def main():
                 continue
 
             color = np.asanyarray(color_frame.get_data())
-
             vis = color.copy()
             gui.draw_overlay(vis)
             cv2.imshow(gui.window, vis)
@@ -204,6 +229,7 @@ def main():
 
             if key == ord('r'):
                 gui.reset()
+
             elif key == ord('c'):
                 click = gui.get_click()
                 if click is None:
@@ -250,28 +276,6 @@ def main():
         pipeline.stop()
         cv2.destroyAllWindows()
 
-    # --- Now get the four corners ---
-    print("\nNow define the four corners on the RealSense image.")
-    pipeline.start(config)
-
-    def get_color_and_depth():
-        frames = pipeline.wait_for_frames()
-        aligned = align.process(frames)
-        depth_frame = aligned.get_depth_frame()
-        color_frame = aligned.get_color_frame()
-        return np.asanyarray(color_frame.get_data()), depth_frame
-
-    corners_px, corners_rs = gui.get_multiple_clicks(
-        4, get_color_and_depth, depth_at_pixel_or_neighborhood, color_intr, depth_win=args.depth_win
-    )
-
-    print(f"\nSelected corners (pixels): {corners_px}")
-    print(f"Selected corners (RealSense 3D):")
-    for i, c in enumerate(corners_rs):
-        print(f"  Corner {i+1}: {c}")
-
-    pipeline.stop()
-
     # --- Compute transformation ---
     points_rs = np.array(points_rs, dtype=float)
     points_robot = np.array(points_robot, dtype=float)
@@ -285,7 +289,7 @@ def main():
     np.set_printoptions(precision=6, suppress=True)
     print(H)
 
-    H.tofile("./H.txt")
+    H.tofile("./H2.txt")
     print('Saved H to "./H.txt".')
 
     if len(points_rs) > 3:
