@@ -27,24 +27,22 @@ def dummy_streamer():
 
 
 def convert_coords(coords, from_file=False):
-    """
-    Convert camera frame coordinates to world coordinates.
-    If from_file is a string path, load a 4x4 homogeneous transform from that text file.
-    Otherwise use identity rotation and zero translation.
-    """
-    x, y, z = np.asarray(coords, dtype=float)
+    x, y, z = coords
+    H = np.fromfile(from_file)
+    H.resize(4, 4)
+    if from_file:
+        return (H @ np.array([x, y, z, 1]))[:3]
 
-    if isinstance(from_file, str) and from_file:
-        H = np.loadtxt(from_file, dtype=float).reshape(4, 4)
-        return (H @ np.array([x, y, z, 1.0]))[:3]
+    R = np.array([[1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1]])
 
-    R = np.eye(3, dtype=float)
-    t = np.zeros(3, dtype=float)
+    t = np.array([0, 0, 0])
 
     H = np.eye(4, dtype=float)
     H[:3, :3] = R
-    H[:3, 3] = t
-    return (H @ np.array([x, y, z, 1.0]))[:3]
+    H[:3,  3] = t
+    return (H @ np.array([x, y, z, 1]))[:3]
 
 
 def get_grip_positions(coords):
