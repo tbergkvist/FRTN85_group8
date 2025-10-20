@@ -110,8 +110,8 @@ if __name__ == "__main__":
  
     while True:
         try:
-            piece = False
-            while not piece:
+            piece = None
+            while piece is None:
                 try:
                     piece = piece2number[input("Piece to move: ").lower()]
                 except:
@@ -121,14 +121,18 @@ if __name__ == "__main__":
             print("Will move the piece this much in x and y: ", command)
 
             print("Looking for a chess piece using realsense camera.")
+            piece_coords = None
             for i in range(5):
                 pieces = next(realsense_stream)
+                print("Pieces", pieces)
                 if piece in pieces["class"]:
                     index = pieces["class"].index(piece)
                     piece_coords = pieces["center_point"][index]
                     piece_coords = convert_coords(piece_coords, "./H.txt")
                     print("Chess piece found at: ", piece_coords)
-
+            if piece_coords is None:
+                print("Could not find your piece. Try again.")
+                continue
             above, on, place = get_grip_positions(piece_coords)
             T_w_goal = pin.SE3(initial_rotation, above)
             compliantMoveL(T_w_goal, args, robot)

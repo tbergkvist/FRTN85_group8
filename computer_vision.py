@@ -30,7 +30,7 @@ def detect_pieces(model, img, piece_conf_thres=0.7):
 
     boxes = result.boxes  # Boxes object for bounding boxes
     if boxes is None or len(boxes) == 0:
-        return None
+        return pieces
 
     for box in boxes:
         if box.conf[0].item() < piece_conf_thres:
@@ -61,7 +61,7 @@ def pixel2coord(depth_frame, u, v, color_intr):
     Z = depth_frame.get_distance(ui, vi)
     if not Z or Z == 0.0:
         # optional: your neighborhood search here, which should also use integer indices
-        continue
+        return
 
     # Deproject uses float pixel coordinates and metric depth
     point_3d = rs.rs2_deproject_pixel_to_point(color_intr, [float(u), float(v)], float(Z))
@@ -129,5 +129,5 @@ def stream_camera_frame_coords(multiple_pieces=False, piece_conf_thres=0.7):
 # for X, Y, Zm in stream_camera_frame_coords():
 #     print(X, Y, Zm)
 
-# for pieces in stream_camera_frame_coords(multiple_pieces=True):
+#for pieces in stream_camera_frame_coords(multiple_pieces=True):
 #     print(pieces["class"])
