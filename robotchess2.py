@@ -61,20 +61,31 @@ def get_args() -> argparse.Namespace:
     args = parser.parse_args()
     return args
 
-piece2number = {
-    "black pawn": 0,
-    "white pawn": 1,
-    "black knight": 2,
-    "white knight": 3,
-    "black bishop": 4,
-    "white bishop": 5,
-    "black rook": 6,
-    "white rook": 7,
-    "black queen": 8,
-    "white queen": 9,
-    "black king": 10,
-    "white king": 11
-}
+number2piece = {0: 'black bishop',
+                1: 'black king',
+                2: 'black knight',
+                3: 'black pawn',
+                4: 'black queen',
+                5: 'black rook',
+                6: 'white bishop',
+                7: 'white king',
+                8: 'white knight',
+                9: 'white pawn',
+                10: 'white queen',
+                11: 'white rook'}
+
+piece2number = {'black bishop': 0,
+                'black king'  : 1,
+                'black knight': 2,
+                'black pawn'  : 3,
+                'black queen' : 4,
+                'black rook'  : 5,
+                'white bishop': 6,
+                'white king'  : 7,
+                'white knight': 8,
+                'white pawn'  : 9,
+                'white queen': 1,
+                'white rook' : 1}
 
 
 if __name__ == "__main__":
@@ -110,6 +121,8 @@ if __name__ == "__main__":
  
     while True:
         try:
+            pieces = next(realsense_stream)
+            print(f"Currently seeing these pieces: {[number2piece[p] for p in pieces["class"]]}")
             piece = None
             while piece is None:
                 try:
