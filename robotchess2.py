@@ -143,6 +143,7 @@ if __name__ == "__main__":
                     piece_coords = pieces["center_point"][index]
                     piece_coords = convert_coords(piece_coords, "./H.txt")
                     print("Chess piece found at: ", piece_coords)
+                    break
             if piece_coords is None:
                 print("Could not find your piece. Try again.")
                 continue
