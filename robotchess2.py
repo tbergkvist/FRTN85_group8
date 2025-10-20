@@ -44,6 +44,11 @@ def get_grip_positions(coords):
     return above, on, place
 
 
+def zero_robot_vel():
+    if args.real:
+        robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) 
+
+
 def get_args() -> argparse.Namespace:
     parser = getMinimalArgParser()
     parser.description = "Chess playing robot madness."
@@ -113,6 +118,7 @@ if __name__ == "__main__":
     print("Moving to initial pose.")
     T_w_goal = pin.SE3(initial_rotation, initial_position)
     moveL(args, robot, T_w_goal)
+    zero_robot_vel()
 
  
     while True:
@@ -146,11 +152,13 @@ if __name__ == "__main__":
             above, on, place = get_grip_positions(piece_coords)
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
+            zero_robot_vel()
             robot.openGripper()
             print("Has moved to position above the piece: ", above)
             
             T_w_goal = pin.SE3(initial_rotation, on)
             moveL(args, robot, T_w_goal)
+            zero_robot_vel()
 
             robot.closeGripper()
             time.sleep(1)
@@ -158,22 +166,26 @@ if __name__ == "__main__":
 
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
+            zero_robot_vel()
             print("Has lifted the piece to", above)
 
             new_pos = piece_coords + command
             above, on, place = get_grip_positions(new_pos)
             T_w_goal = pin.SE3(initial_rotation, above)
             moveL(args, robot, T_w_goal)
+            zero_robot_vel()
             print("Has moved the piece to above new position: ", above)
 
             T_w_goal = pin.SE3(initial_rotation, place)
             moveL(args, robot, T_w_goal)
+            zero_robot_vel()
             robot.openGripper()
             time.sleep(1)
             print("Has put down the piece at: ", place)
 
             T_w_goal = pin.SE3(initial_rotation, initial_position)
             moveL(args, robot, T_w_goal)
+            zero_robot_vel()
             print("Has moved back to inital pose: ", initial_position)
 
         except KeyboardInterrupt:
