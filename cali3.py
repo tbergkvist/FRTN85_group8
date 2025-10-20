@@ -143,7 +143,7 @@ def main():
     
     # --- Now define 4 corners, same style as above ---
     print("\nNow define the four corners on the RealSense image.")
-    pipeline.start(config)
+   # pipeline.start(config)
     corners_px = []
     corners_rs = []
 
