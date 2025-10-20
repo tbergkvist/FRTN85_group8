@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 import time
 import cv2
+import threading
 
 
 def dummy_streamer():
@@ -74,14 +75,54 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def show_pieces_gui(pieces):
+class _Gui:
+    """Very small OpenCV UI that runs in a background thread."""
+    def __init__(self, window_name="Detections"):
+        self.window_name = window_name
+        self._latest = None
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._th = threading.Thread(target=self._loop, daemon=True)
+
+    def start(self):
+        self._th.start()
+
+    def update(self, frame_bgr):
+        # Accepts a BGR frame to show
+        with self._lock:
+            self._latest = frame_bgr
+
+    def stop(self):
+        self._stop.set()
+        self._th.join(timeout=1.0)
+        try:
+            cv2.destroyWindow(self.window_name)
+        except Exception:
+            pass
+
+    def _loop(self):
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        while not self._stop.is_set():
+            with self._lock:
+                frame = self._latest
+            if frame is not None:
+                cv2.imshow(self.window_name, frame)
+            # Keep UI responsive and allow closing the window or pressing q or Esc
+            key = cv2.waitKey(1) & 0xFF
+            if key in (27, ord('q')):
+                self._stop.set()
+                break
+            time.sleep(0.01)  # tiny sleep to reduce CPU
+
+
+def _render_pieces_overlay(pieces):
     """
-    Draw bounding boxes and labels on pieces['color_frame'] and show with OpenCV.
+    Draw bounding boxes and labels on pieces['color_frame'] and return BGR image.
     Supports BBox as either normalized [x, y, w, h] or absolute [x1, y1, x2, y2].
     """
     img = pieces.get("color_frame")
     if img is None:
-        return
+        return None
 
     img = np.asarray(img)
     if img.ndim == 2:
@@ -119,8 +160,14 @@ def show_pieces_gui(pieces):
         y_text = max(0, y1 - 5)
         cv2.putText(img_vis, label, (x1, y_text), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
 
-    cv2.imshow("Detections", img_vis)
-    cv2.waitKey(1)
+    return img_vis
+
+
+def show_pieces_gui(pieces, gui):
+    """Render overlay and push to the GUI thread."""
+    frame = _render_pieces_overlay(pieces)
+    if frame is not None:
+        gui.update(frame)
 
 
 number2piece = {
@@ -170,6 +217,10 @@ if __name__ == "__main__":
     else:
         realsense_stream = dummy_streamer()
 
+    # Start GUI thread
+    gui = _Gui("Detections")
+    gui.start()
+
     robot._step()
     initial_rotation = np.array(
         [
@@ -196,94 +247,98 @@ if __name__ == "__main__":
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
 
-    while True:
-        try:
-            pieces = next(realsense_stream)
-            # Show detections
-            show_pieces_gui(pieces)
-
+    try:
+        while True:
             try:
-                print(
-                    f"Currently seeing these pieces: "
-                    f"{[number2piece[p] for p in pieces['class']]}"
-                )
-            except Exception:
-                print("Currently seeing these pieces: ", pieces)
-
-            piece = None
-            while piece is None:
-                try:
-                    piece = piece2number[input("Piece to move: ").lower()]
-                except Exception:
-                    print("Bad input.")
-
-            command = np.array(
-                [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
-            )
-            command = np.append(command, 0.0)
-            print("Will move the piece this much in x and y: ", command)
-
-            print("Looking for a chess piece using realsense camera.")
-            piece_coords = None
-            for _ in range(5):
                 pieces = next(realsense_stream)
-                show_pieces_gui(pieces)  # Update GUI as we poll
-                print("Pieces", pieces)
-                if piece in pieces["class"]:
-                    index = pieces["class"].index(piece)
-                    center = pieces["center_point"][index]
-                    piece_coords = convert_coords(center, "./H.txt")
-                    print("Chess piece found at: ", piece_coords)
-                    break
+                # Show detections without blocking the main loop
+                show_pieces_gui(pieces, gui)
 
-            if piece_coords is None:
-                print("Could not find your piece. Try again.")
-                continue
+                try:
+                    print(
+                        f"Currently seeing these pieces: "
+                        f"{[number2piece[p] for p in pieces['class']]}"
+                    )
+                except Exception:
+                    print("Currently seeing these pieces: ", pieces)
 
-            above, on, place = get_grip_positions(piece_coords)
+                piece = None
+                while piece is None:
+                    try:
+                        piece = piece2number[input("Piece to move: ").lower()]
+                    except Exception:
+                        print("Bad input.")
 
-            T_w_goal = pin.SE3(initial_rotation, above)
-            moveL(args, robot, T_w_goal)
-            zero_robot_vel(robot, args)
-            robot.openGripper()
-            print("Has moved to position above the piece: ", above)
+                command = np.array(
+                    [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
+                )
+                command = np.append(command, 0.0)
+                print("Will move the piece this much in x and y: ", command)
 
-            T_w_goal = pin.SE3(initial_rotation, on)
-            moveL(args, robot, T_w_goal)
-            zero_robot_vel(robot, args)
+                print("Looking for a chess piece using realsense camera.")
+                piece_coords = None
+                for _ in range(5):
+                    pieces = next(realsense_stream)
+                    show_pieces_gui(pieces, gui)  # Update GUI as we poll
+                    print("Pieces", pieces)
+                    if piece in pieces["class"]:
+                        index = pieces["class"].index(piece)
+                        center = pieces["center_point"][index]
+                        piece_coords = convert_coords(center, "./H.txt")
+                        print("Chess piece found at: ", piece_coords)
+                        break
 
-            robot.closeGripper()
-            time.sleep(1.0)
-            print("Has moved to position on the piece and closed gripper: ", on)
+                if piece_coords is None:
+                    print("Could not find your piece. Try again.")
+                    continue
 
-            T_w_goal = pin.SE3(initial_rotation, above)
-            moveL(args, robot, T_w_goal)
-            zero_robot_vel(robot, args)
-            print("Has lifted the piece to", above)
+                above, on, place = get_grip_positions(piece_coords)
 
-            new_pos = np.asarray(piece_coords, dtype=float) + np.asarray(command, dtype=float)
-            above, on, place = get_grip_positions(new_pos)
+                T_w_goal = pin.SE3(initial_rotation, above)
+                moveL(args, robot, T_w_goal)
+                zero_robot_vel(robot, args)
+                robot.openGripper()
+                print("Has moved to position above the piece: ", above)
 
-            T_w_goal = pin.SE3(initial_rotation, above)
-            moveL(args, robot, T_w_goal)
-            zero_robot_vel(robot, args)
-            print("Has moved the piece to above new position: ", above)
+                T_w_goal = pin.SE3(initial_rotation, on)
+                moveL(args, robot, T_w_goal)
+                zero_robot_vel(robot, args)
 
-            T_w_goal = pin.SE3(initial_rotation, place)
-            moveL(args, robot, T_w_goal)
-            zero_robot_vel(robot, args)
-            robot.openGripper()
-            time.sleep(1.0)
-            print("Has put down the piece at: ", place)
+                robot.closeGripper()
+                time.sleep(1.0)
+                print("Has moved to position on the piece and closed gripper: ", on)
 
-            T_w_goal = pin.SE3(initial_rotation, initial_position)
-            moveL(args, robot, T_w_goal)
-            zero_robot_vel(robot, args)
-            print("Has moved back to inital pose: ", initial_position)
+                T_w_goal = pin.SE3(initial_rotation, above)
+                moveL(args, robot, T_w_goal)
+                zero_robot_vel(robot, args)
+                print("Has lifted the piece to", above)
 
-        except KeyboardInterrupt:
-            print("Shutting down the chessbot.")
-            break
+                new_pos = np.asarray(piece_coords, dtype=float) + np.asarray(command, dtype=float)
+                above, on, place = get_grip_positions(new_pos)
+
+                T_w_goal = pin.SE3(initial_rotation, above)
+                moveL(args, robot, T_w_goal)
+                zero_robot_vel(robot, args)
+                print("Has moved the piece to above new position: ", above)
+
+                T_w_goal = pin.SE3(initial_rotation, place)
+                moveL(args, robot, T_w_goal)
+                zero_robot_vel(robot, args)
+                robot.openGripper()
+                time.sleep(1.0)
+                print("Has put down the piece at: ", place)
+
+                T_w_goal = pin.SE3(initial_rotation, initial_position)
+                moveL(args, robot, T_w_goal)
+                zero_robot_vel(robot, args)
+                print("Has moved back to inital pose: ", initial_position)
+
+            except KeyboardInterrupt:
+                print("Shutting down the chessbot.")
+                break
+    finally:
+        # Ensure GUI thread is cleaned up
+        gui.stop()
 
     if args.real:
         robot.stopRobot()
@@ -293,9 +348,3 @@ if __name__ == "__main__":
 
     if args.save_log:
         robot._log_manager.saveLog()
-
-    # Close GUI windows on exit
-    try:
-        cv2.destroyAllWindows()
-    except Exception:
-        pass
