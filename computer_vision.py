@@ -25,7 +25,7 @@ def detect_piece(model, img):
     return u, v
 
 
-def stream_camera_frame_coords():
+def stream_camera_frame_coords(vis=False):
     MODEL_PATH = "./chess_model.pt"
 
     pipeline = rs.pipeline()
@@ -61,9 +61,10 @@ def stream_camera_frame_coords():
             # YOLO detection model to get piece pixel (u, v)
             uv = detect_piece(model, color)
             if uv is None:
-                cv2.imshow("Detection", color)
-                if cv2.waitKey(1) == 27:
-                    break
+                if vis:
+                    cv2.imshow("Detection", color)
+                    if cv2.waitKey(1) == 27:
+                        break
 
                 continue
             u, v = uv
@@ -76,9 +77,10 @@ def stream_camera_frame_coords():
             # Depth at integer pixel
             Z = depth_frame.get_distance(ui, vi)
             if not Z or Z == 0.0:
-                cv2.imshow("Detection", color)
-                if cv2.waitKey(1) == 27:
-                    break  
+                if vis:
+                    cv2.imshow("Detection", color)
+                    if cv2.waitKey(1) == 27:
+                        break  
                 # optional: your neighborhood search here, which should also use integer indices
                 continue
 
@@ -86,13 +88,14 @@ def stream_camera_frame_coords():
             point_3d = rs.rs2_deproject_pixel_to_point(color_intr, [float(u), float(v)], float(Z))
             X, Y, Zm = point_3d  # meters
 
-            cv2.circle(color, (int(u), int(v)), 5, (0, 0, 255), -1)  
-            coord_text = f"X={X:.3f} m, Y={Y:.3f} m, Z={Zm:.3f} m"
-            cv2.putText(color, coord_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.7, (255, 255, 255), 2)
-            cv2.imshow("Detection", color)
-            if cv2.waitKey(1) == 27:  # ESC key to quit
-                break
+            if vis:
+                cv2.circle(color, (int(u), int(v)), 5, (0, 0, 255), -1)  
+                coord_text = f"X={X:.3f} m, Y={Y:.3f} m, Z={Zm:.3f} m"
+                cv2.putText(color, coord_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7, (255, 255, 255), 2)
+                cv2.imshow("Detection", color)
+                if cv2.waitKey(1) == 27:  # ESC key to quit
+                    break
 
             yield X, Y, Zm
     finally:
