@@ -100,7 +100,7 @@ def extract_corner_coords(from_file = False):
     logging.info("Corners extracted from file: ")
     for i, c in enumerate(corner_coords):
         logging.info("Corner [%.1f]: [%.3f, %.3f, %.3f]", (i+1), *c)
-    return corner_coords[0], corner_coords[1], corner_coords[2], corner_coords[3]
+    return corner_coords
 
 def find_closest_corner(corner_coords):
     distances = np.linalg.norm(corner_coords[:, :2],axis=1)
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     print("MARKUS TESTAR SAKER TA BORT, DENNA LIGGER PÅ RAD 262")
     corner_coords = extract_corner_coords("./corners.txt")
     closest_corner = find_closest_corner(corner_coords)
-    A1_coords = np.array([closest_corner[0] + 0.025, closest_corner[1] + 0.025],0.25) # find the midpoint of the A1 square (assuming the board is orientated so A1 is closest to the base frame)
+    A1_coords = np.array([closest_corner[0] + 0.025, closest_corner[1] - 0.025,0.25]) # find the midpoint of the A1 square (assuming the board is orientated so A1 is closest to the base frame)
 
     
 
@@ -286,14 +286,15 @@ if __name__ == "__main__":
 
 
     move_home(tool_orientation, initial_position)
-    move_home(tool_orientation, np.array([A1_coords[0],A1_coords[]]))
+    move_home(tool_orientation, A1_coords)
 
 
     try:
         while True:
             logging.info("Looking at chess board using realsense camera.")
             pieces = next(realsense_stream)
-            show_pieces_gui(pieces, gui)
+            if pieces is not None:
+                show_pieces_gui(pieces, gui)
 
             try:
                 logging.info(
