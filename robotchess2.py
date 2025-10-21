@@ -91,6 +91,18 @@ def move_home(tool_orientation, initial_position):
     zero_robot_vel(robot, args)
     logging.info("Has moved to inital pose:  [%.3f, %.3f, %.3f]", *initial_position)
 
+def extract_corner_coords(from_file = False):
+    if from_file == False:
+        return None
+    
+    corner_coords = np.fromfile(from_file)
+    corner_coords.resize(4,3)
+    logging.info("Corners extracted from file: ",corner_coords[0], corner_coords[1], corner_coords[2], corner_coords[3])
+    return corner_coords[0], corner_coords[1], corner_coords[2], corner_coords[3]
+  
+
+
+
 
 def get_args() -> argparse.Namespace:
     parser = getMinimalArgParser()
@@ -260,8 +272,11 @@ if __name__ == "__main__":
     logging.info("Initial position of robot: [%.3f, %.3f, %.3f]", *initial_position)
 
     print("MARKUS TESTAR SAKER TA BORT, DENNA LIGGER PÅ RAD 262")
-    Corner_coords = np.fromfile("./corners.txt")
-    print(Corner_coords)
+    c1,c2,c3,c4 = extract_corner_coords("./corners.txt")
+    
+
+
+
 
     move_home(tool_orientation, initial_position)
 
