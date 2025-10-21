@@ -122,13 +122,13 @@ def solve_rigid_transform(A, B):
     return T
 
 
-def corner_tranformation(C, H):
-    corners_realsense = np.array(C, dtype=float)
-    ones = np.ones((corners_realsense.shape[0], 1))
-    corners_realsense_h = np.hstack([corners_realsense, ones])
-    corners_transformed_h = (H @ corners_realsense_h.T).T
-    corners_transformed = corners_transformed_h[:, :3]
-    return corners_transformed
+def vector_tranformation(coords, H):
+    vector_realsense = np.array(coords, dtype=float)
+    ones = np.ones((vector_realsense.shape[0], 1))
+    vector_extended_realsense = np.hstack([vector_realsense, ones])
+    vector_extended_robot = (H @ vector_extended_realsense.T).T
+    vector_robot = vector_extended_robot[:, :3]
+    return vector_robot
 
 
 def main():
@@ -287,7 +287,7 @@ def main():
     print('Saved H to "./H.txt".')
 
     # --- Transform corner coordinates from rs to robot frame ---
-    corners_in_robot_frame = corner_tranformation(corners_rs, H)
+    corners_in_robot_frame = vector_tranformation(corners_rs, H)
     
     print("\nTransformed corner points")
     for i, p in enumerate(corners_in_robot_frame, 1):
