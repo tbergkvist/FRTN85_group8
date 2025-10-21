@@ -55,39 +55,39 @@ def move_piece(piece_coords, target_coords, tool_orientation, gripper_sleep=1.0)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.openGripper()
-    logging.info("Has moved to position above the piece: ", above)
+    logging.info("Has moved to position above the piece:  [%.3f, %.3f, %.3f]", *above)
 
     T_w_goal = pin.SE3(tool_orientation, on)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.closeGripper()
     time.sleep(gripper_sleep)
-    logging.info("Has moved to position on the piece and closed gripper: ", on)
+    logging.info("Has moved to position on the piece and closed gripper:  [%.3f, %.3f, %.3f]", *on)
 
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has lifted the piece to", above)
+    logging.info("Has lifted the piece to  [%.3f, %.3f, %.3f]", *above)
 
     above, on, place = get_grip_positions(target_coords)
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has moved the piece to above new position: ", above)
+    logging.info("Has moved the piece to above new position:  [%.3f, %.3f, %.3f]", *above)
 
     T_w_goal = pin.SE3(tool_orientation, place)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.openGripper()
     time.sleep(gripper_sleep)
-    logging.info("Has put down the piece at: ", place)
+    logging.info("Has put down the piece at:  [%.3f, %.3f, %.3f]", *place)
 
 
 def move_home(tool_orientation, initial_position):
     T_w_goal = pin.SE3(tool_orientation, initial_position)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has moved to inital pose: ", initial_position)
+    logging.info("Has moved to inital pose:  [%.3f, %.3f, %.3f]", *initial_position)
 
 
 def get_args() -> argparse.Namespace:
@@ -96,6 +96,7 @@ def get_args() -> argparse.Namespace:
     robot_ip="192.168.1.150",
     plotter=False,
     gripper="onrobot",
+    visualizer=False,
     )
     parser.description = "Chess playing robot madness."
     parser = getClikArgs(parser)
@@ -115,7 +116,6 @@ class _Gui:
         self._th.start()
 
     def update(self, frame_bgr):
-        # Accepts a BGR frame to show
         with self._lock:
             self._latest = frame_bgr
 
@@ -230,8 +230,8 @@ piece2number = {
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO,                # Set the logging level
-        format="%(asctime)s [%(levelname)s] %(message)s"  # Format of log messages
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s"
     )
 
     args = get_args()
@@ -255,7 +255,7 @@ if __name__ == "__main__":
     )
 
     initial_position = np.array(robot.T_w_e.translation).astype(float)
-    logging.info("Initial position of robot: %s", initial_position)
+    logging.info("Initial position of robot: [%.3f, %.3f, %.3f]", *initial_position)
 
     move_home(tool_orientation, initial_position)
 
@@ -282,14 +282,14 @@ if __name__ == "__main__":
                 [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
             )
             command = np.append(command, 0.0)
-            logging.info("Will move the piece this much in x and y: %s", command)
+            logging.info("Will move the piece this much in x and y:  [%.3f, %.3f, %.3f]", *command)
 
             piece_coords = None
             if piece in pieces["class"]:
                 index = pieces["class"].index(piece)
                 center = pieces["center_point"][index]
                 piece_coords = convert_coords(center, "./H.txt")
-                logging.info("Chess piece found at: %s", piece_coords)
+                logging.info("Chess piece found at:  [%.3f, %.3f, %.3f]", *piece_coords)
 
             if piece_coords is None:
                 logging.info("Could not find your piece. Try again.")
@@ -307,14 +307,13 @@ if __name__ == "__main__":
 
 
     finally:
-        # Ensure GUI thread is cleaned up
         gui.stop()
 
-    if args.real:
-        robot.stopRobot()
+        if args.real:
+            robot.stopRobot()
 
-    if args.visualizer:
-        robot.killManipulatorVisualizer()
+        if args.visualizer:
+            robot.killManipulatorVisualizer()
 
-    if args.save_log:
-        robot._log_manager.saveLog()
+        if args.save_log:
+            robot._log_manager.saveLog()
