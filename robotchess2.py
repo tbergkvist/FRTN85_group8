@@ -11,6 +11,8 @@ import cv2
 import threading
 import logging
 
+COLS = list("ABCDEFGH")          # files (y direction)
+ROWS = [str(i) for i in range(1, 9)]  # ranks (x direction)
 
 def convert_coords(coords, from_file=False):
     x, y, z = coords
@@ -257,6 +259,10 @@ if __name__ == "__main__":
     initial_position = np.array(robot.T_w_e.translation).astype(float)
     logging.info("Initial position of robot: [%.3f, %.3f, %.3f]", *initial_position)
 
+    print("MARKUS TESTAR SAKER TA BORT, DENNA LIGGER PÅ RAD 262")
+    Corner_coords = np.fromfile("./corners.txt")
+    print(Corner_coords)
+
     move_home(tool_orientation, initial_position)
 
     try:
@@ -317,3 +323,83 @@ if __name__ == "__main__":
 
         if args.save_log:
             robot._log_manager.saveLog()
+
+
+
+#Markus is a terrorist and placing his functions down at the bottom right now 
+
+def square_xy(square: str, A1_xy, square_size_cm=4.5):
+    """
+    square: like "E4" or "a1"
+    A1_xy: (x0, y0) of A1 midpoint in robot base frame (same length units as square_size)
+    square_size_cm: size of one square (default 4.5 cm)
+    """
+    square = square.strip().upper()
+    if len(square) != 2 or square[0] not in "ABCDEFGH" or square[1] not in "12345678":
+        raise ValueError(f"Bad square '{square}'")
+
+    file_char = square[0]                 # A..H → y direction
+    rank_char = square[1]                 # 1..8 → x direction
+
+    file_idx = ord(file_char) - ord('A')  # 0..7
+    rank_idx = int(rank_char) - 1         # 0..7
+
+    x0, y0 = A1_xy
+    s = square_size_cm
+
+    x = x0 + rank_idx * s     # ranks increase along +x
+    y = y0 + file_idx * s     # files increase along +y
+    return (x, y)
+
+def two_squares_xy(sq1, sq2, A1_xy, square_size_cm=4.5):
+    p1 = square_xy(sq1, A1_xy, square_size_cm)
+    p2 = square_xy(sq2, A1_xy, square_size_cm)
+    return p1, p2
+
+def nearest_square(x, y, A1_xy, square_size=4.5, clamp=True):
+    """
+    Return the closest square name and its indices (r,c) given a point (x,y).
+
+    Assumptions (your mapping):
+      - A1 is at A1_xy = (x0, y0)
+      - Ranks 1..8 increase along +x (size = square_size)
+      - Files A..H increase along +y (size = square_size)
+
+    Params
+    ------
+    x, y : float
+        Coordinates in same units as square_size (cm if square_size=4.5).
+    A1_xy : (float, float)
+        (x0, y0) of A1 midpoint in base frame.
+    square_size : float
+        Side length of one square (default 4.5).
+    clamp : bool
+        If True, clamp to board edges when (x,y) is outside 8x8.
+        If False, raise ValueError when outside.
+
+    Returns
+    -------
+    name : str   e.g. "E4"
+    rc   : (int,int)  (rank_index, file_index) zero-based
+    center_xy : (float,float) center of that square
+    """
+    x0, y0 = A1_xy
+    # offsets in “square units”
+    dx = (x - x0) / square_size   # 0 at rank 1, 7 at rank 8
+    dy = (y - y0) / square_size   # 0 at file A,  7 at file H
+
+    r = int(np.rint(dx))  # rank index 0..7
+    c = int(np.rint(dy))  # file index 0..7
+
+    if clamp:
+        r = int(np.clip(r, 0, 7))
+        c = int(np.clip(c, 0, 7))
+    else:
+        if not (0 <= r <= 7 and 0 <= c <= 7):
+            raise ValueError(f"Point ({x:.2f},{y:.2f}) is off the board.")
+
+    name = f"{COLS[c]}{ROWS[r]}"
+    # exact center of that square:
+    cx = x0 + (r + 0.5) * square_size
+    cy = y0 + (c + 0.5) * square_size
+    return name, (r, c), (cx, cy)
