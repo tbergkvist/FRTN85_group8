@@ -15,12 +15,6 @@ def get_args() -> argparse.Namespace:
     parser.description = "Chess playing robot calibration."
     parser = getClikArgs(parser)
     parser.add_argument(
-        "--manual",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="If True, enter robot points manually as comma separated values x,y,z.",
-    )
-    parser.add_argument(
         "--min_pairs",
         type=int,
         default=5,
@@ -127,13 +121,15 @@ def solve_rigid_transform(A, B):
     T[:3, 3] = t
     return T
 
+
 def corner_tranformation(C, H):
     corners_realsense = np.array(C, dtype=float)
     ones = np.ones((corners_realsense.shape[0], 1))
     corners_realsense_h = np.hstack([corners_realsense, ones])
     corners_transformed_h = (H @ corners_realsense_h.T).T
     corners_transformed = corners_transformed_h[:, :3]
-    return corners_transformed    
+    return corners_transformed
+
 
 def main():
     args = get_args()
@@ -142,18 +138,17 @@ def main():
     robot.setFreedrive()
 
     pipeline, align, color_intr, config = enable_realsense()
-
     gui = ClickGUI("RealSense Color")
     
-    print("Instructions:")
-    print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
-    print(f"- Press 'q' anytime to finish and solve once you have 4 corners.")
-    
-    print("\nDefine the four corners on the RealSense image.")
-    corners_px = []
-    corners_rs = []
-
     try:
+        # ----- CORNER POINTS -----
+        print("Instructions:")
+        print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
+        print(f"- Press 'q' anytime to finish and solve once you have 4 corners.")
+        
+        corners_px = []
+        corners_rs = []
+
         while True:
             frames = pipeline.wait_for_frames()
             aligned = align.process(frames)
@@ -176,9 +171,9 @@ def main():
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord('r'):
-                print("Reset corners.")
-                corners_px.clear()
-                corners_rs.clear()
+                print("Reset corner.")
+                #corners_px.clear()
+                #corners_rs.clear()
                 gui.reset()
 
             elif key == ord('c'):
@@ -210,7 +205,7 @@ def main():
         for i, c in enumerate(corners_rs):
             print(f"  Corner {i+1}: {c}")
 
-        #-------------------- ROBOT POINTS ------------------------ 
+        # ----- ROBOT POINTS -----
         print("Instructions:")
         print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
         print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
@@ -233,6 +228,7 @@ def main():
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord('r'):
+                print("Reset point.")
                 gui.reset()
 
             elif key == ord('c'):
@@ -251,18 +247,12 @@ def main():
                 points_rs.append(pts_rs)
                 print(f"RealSense point {len(points_rs)}: {pts_rs}")
 
-                if args.manual:
-                    robot_point = np.array(
-                        [float(val) for val in input("Enter robot coordinates x,y,z in meters: ").split(",")],
-                        dtype=float
-                    )
-                else:
-                    robot._step()
-                    T_w_e = np.array(robot.T_w_e)
-                    L = 0.12
-                    p_tool_e = np.array([0.0, 0.0, L, 1.0])
-                    p_tool_w = (T_w_e @ p_tool_e)[:3]
-                    robot_point = p_tool_w
+                robot._step()
+                T_w_e = np.array(robot.T_w_e)
+                L = 0.12
+                p_tool_e = np.array([0.0, 0.0, L, 1.0])
+                p_tool_w = (T_w_e @ p_tool_e)[:3]
+                robot_point = p_tool_w
 
                 points_robot.append(robot_point)
                 print(f"Robot point {len(points_robot)}: {robot_point}")
@@ -300,12 +290,13 @@ def main():
     corners_in_robot_frame = corner_tranformation(corners_rs, H)
     
     print("\nTransformed corner points")
-    for i, p in enumerate(corners_in_robot_frame, 1)
+    for i, p in enumerate(corners_in_robot_frame, 1):
         print(f"Corner {i}: {p}")
     
     corners_in_robot_frame.tofile("./corners.txt")
     print('Saved corners to "./corners.txt".')
 
+    # --- Check calibration error ---
     if len(points_rs) > 3:
         test_index = -1
         p_rs_test = np.append(points_rs[test_index], 1.0)
@@ -322,4 +313,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
