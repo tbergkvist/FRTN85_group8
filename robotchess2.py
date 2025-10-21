@@ -97,11 +97,10 @@ def extract_corner_coords(from_file = False):
     
     corner_coords = np.fromfile(from_file)
     corner_coords.resize(4,3)
-    logging.info("Corners extracted from file: ",corner_coords[0], corner_coords[1], corner_coords[2], corner_coords[3])
+    logging.info("Corners extracted from file: ")
+    for i, c in enumerate(corner_coords):
+        logging.info("Corner [%.1f]: [%.3f, %.3f, %.3f]", (i+1), *c)
     return corner_coords[0], corner_coords[1], corner_coords[2], corner_coords[3]
-  
-
-
 
 
 def get_args() -> argparse.Namespace:
