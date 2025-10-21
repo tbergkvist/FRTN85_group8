@@ -1,7 +1,7 @@
 from smc import getMinimalArgParser, getRobotFromArgs
 from smc.control.cartesian_space import getClikArgs
-# from smc.control.cartesian_space.cartesian_space_compliant_control import compliantMoveL
 from smc.control.cartesian_space.cartesian_space_point_to_point import moveL
+from computer_vision import stream_camera_frame_coords
 import pinocchio as pin
 
 import argparse
@@ -9,21 +9,7 @@ import numpy as np
 import time
 import cv2
 import threading
-
-
-def dummy_streamer():
-    """Emulate a computer vision stream that yields detection-like dicts."""
-    while True:
-        time.sleep(0.5)
-        # Use list-of-lists for multi-detection consistency
-        yield {
-            "class": [1],
-            "confidence": [0.9],
-            "center_point": [[0.1, 0.1, 0.1]],
-            "BBox": [[0.1, 0.1, 0.2, 0.2]],  # x, y, w, h in normalized units
-            "data": True,
-            "color_frame": np.zeros((360, 640, 3), dtype=np.uint8),
-        }
+import logging
 
 
 def convert_coords(coords, from_file=False):
@@ -60,16 +46,59 @@ def zero_robot_vel(robot, args):
         robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 
+def move_piece(piece_coords, target_coords, tool_orientation, gripper_sleep=1.0):
+    """Picks up piece at piece_coords, moves it to target coords.
+    """
+
+    above, on, place = get_grip_positions(piece_coords)
+    T_w_goal = pin.SE3(tool_orientation, above)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    robot.openGripper()
+    logging.info("Has moved to position above the piece: ", above)
+
+    T_w_goal = pin.SE3(tool_orientation, on)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    robot.closeGripper()
+    time.sleep(gripper_sleep)
+    logging.info("Has moved to position on the piece and closed gripper: ", on)
+
+    T_w_goal = pin.SE3(tool_orientation, above)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    logging.info("Has lifted the piece to", above)
+
+    above, on, place = get_grip_positions(target_coords)
+    T_w_goal = pin.SE3(tool_orientation, above)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    logging.info("Has moved the piece to above new position: ", above)
+
+    T_w_goal = pin.SE3(tool_orientation, place)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    robot.openGripper()
+    time.sleep(gripper_sleep)
+    logging.info("Has put down the piece at: ", place)
+
+
+def move_home(tool_orientation, initial_position):
+    T_w_goal = pin.SE3(tool_orientation, initial_position)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    logging.info("Has moved to inital pose: ", initial_position)
+
+
 def get_args() -> argparse.Namespace:
     parser = getMinimalArgParser()
+    parser.set_defaults(
+    robot_ip="192.168.1.150",
+    plotter=False,
+    gripper="onrobot",
+    )
     parser.description = "Chess playing robot madness."
     parser = getClikArgs(parser)
-    parser.add_argument(
-        "--realsense",
-        action=argparse.BooleanOptionalAction,
-        help="Flag if running with realsense or not",
-        default=False,
-    )
     return parser.parse_args()
 
 
@@ -110,7 +139,7 @@ class _Gui:
             if key in (27, ord('q')):
                 self._stop.set()
                 break
-            time.sleep(0.01)  # tiny sleep to reduce CPU
+            time.sleep(0.1)
 
 
 def _render_pieces_overlay(pieces):
@@ -183,7 +212,6 @@ number2piece = {
     11: "white rook",
 }
 
-# Fix incorrect mappings
 piece2number = {
     "black bishop": 0,
     "black king": 1,
@@ -201,26 +229,24 @@ piece2number = {
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,                # Set the logging level
+        format="%(asctime)s [%(levelname)s] %(message)s"  # Format of log messages
+    )
+
     args = get_args()
     robot = getRobotFromArgs(args)
 
-    print("Initializing realsense stream.")
-    if args.realsense:
-        # Need the realsense sdk for this import.
-        from computer_vision import stream_camera_frame_coords
-
-        realsense_stream = stream_camera_frame_coords(
-            multiple_pieces=True, piece_conf_thres=0.4
-        )
-    else:
-        realsense_stream = dummy_streamer()
+    logging.info("Initializing realsense stream.")
+    realsense_stream = stream_camera_frame_coords(multiple_pieces=True, piece_conf_thres=0.5)
 
     # Start GUI thread
     gui = _Gui("Detections")
     gui.start()
 
     robot._step()
-    initial_rotation = np.array(
+
+    tool_orientation = np.array(
         [
             [1.0, 0.0, 0.0],
             [0.0, -1.0, 0.0],
@@ -228,112 +254,58 @@ if __name__ == "__main__":
         ]
     )
 
-    if args.start_from_current_pose:
-        initial_position = np.array(robot.T_w_e.translation).astype(float)
-    else:
-        if args.real:
-            print("Use --start-from-current-pose")
-            quit()
-        # Do not use this one, it is inside wall.
-        initial_position = np.array([0.3, 0.3, 0.5], dtype=float)
+    initial_position = np.array(robot.T_w_e.translation).astype(float)
+    logging.info("Initial position of robot: %s", initial_position)
 
-    print("Initial position of robot")
-    print(initial_position)
-
-    print("Moving to initial pose.")
-    T_w_goal = pin.SE3(initial_rotation, initial_position)
-    moveL(args, robot, T_w_goal)
-    zero_robot_vel(robot, args)
+    move_home(tool_orientation, initial_position)
 
     try:
         while True:
+            logging.info("Looking at chess board using realsense camera.")
+            pieces = next(realsense_stream)
+            show_pieces_gui(pieces, gui)
+
             try:
-                pieces = next(realsense_stream)
-                # Show detections without blocking the main loop
-                show_pieces_gui(pieces, gui)
+                logging.info(
+                    "Currently seeing these pieces: %s", [number2piece[p] for p in pieces['class']])
+            except Exception:
+                logging.info("Currently seeing these pieces: %s", pieces)
 
+            piece = None
+            while piece is None:
                 try:
-                    print(
-                        f"Currently seeing these pieces: "
-                        f"{[number2piece[p] for p in pieces['class']]}"
-                    )
+                    piece = piece2number[input("Piece to move: ").lower()]
                 except Exception:
-                    print("Currently seeing these pieces: ", pieces)
+                    logging.info("Bad input.")
 
-                piece = None
-                while piece is None:
-                    try:
-                        piece = piece2number[input("Piece to move: ").lower()]
-                    except Exception:
-                        print("Bad input.")
+            command = np.array(
+                [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
+            )
+            command = np.append(command, 0.0)
+            logging.info("Will move the piece this much in x and y: %s", command)
 
-                command = np.array(
-                    [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
-                )
-                command = np.append(command, 0.0)
-                print("Will move the piece this much in x and y: ", command)
+            piece_coords = None
+            if piece in pieces["class"]:
+                index = pieces["class"].index(piece)
+                center = pieces["center_point"][index]
+                piece_coords = convert_coords(center, "./H.txt")
+                logging.info("Chess piece found at: %s", piece_coords)
 
-                print("Looking for a chess piece using realsense camera.")
-                piece_coords = None
-                for _ in range(5):
-                    pieces = next(realsense_stream)
-                    show_pieces_gui(pieces, gui)  # Update GUI as we poll
-                    print("Pieces", pieces)
-                    if piece in pieces["class"]:
-                        index = pieces["class"].index(piece)
-                        center = pieces["center_point"][index]
-                        piece_coords = convert_coords(center, "./H.txt")
-                        print("Chess piece found at: ", piece_coords)
-                        break
+            if piece_coords is None:
+                logging.info("Could not find your piece. Try again.")
+                continue
 
-                if piece_coords is None:
-                    print("Could not find your piece. Try again.")
-                    continue
+            target_coords = np.asarray(piece_coords, dtype=float) + np.asarray(command, dtype=float)
 
-                above, on, place = get_grip_positions(piece_coords)
+            move_piece(piece_coords, target_coords, tool_orientation)
 
-                T_w_goal = pin.SE3(initial_rotation, above)
-                moveL(args, robot, T_w_goal)
-                zero_robot_vel(robot, args)
-                robot.openGripper()
-                print("Has moved to position above the piece: ", above)
+            move_home(tool_orientation, initial_position)
 
-                T_w_goal = pin.SE3(initial_rotation, on)
-                moveL(args, robot, T_w_goal)
-                zero_robot_vel(robot, args)
+                
+    except KeyboardInterrupt:
+        logging.info("Shutting down the chessbot.")
 
-                robot.closeGripper()
-                time.sleep(1.0)
-                print("Has moved to position on the piece and closed gripper: ", on)
 
-                T_w_goal = pin.SE3(initial_rotation, above)
-                moveL(args, robot, T_w_goal)
-                zero_robot_vel(robot, args)
-                print("Has lifted the piece to", above)
-
-                new_pos = np.asarray(piece_coords, dtype=float) + np.asarray(command, dtype=float)
-                above, on, place = get_grip_positions(new_pos)
-
-                T_w_goal = pin.SE3(initial_rotation, above)
-                moveL(args, robot, T_w_goal)
-                zero_robot_vel(robot, args)
-                print("Has moved the piece to above new position: ", above)
-
-                T_w_goal = pin.SE3(initial_rotation, place)
-                moveL(args, robot, T_w_goal)
-                zero_robot_vel(robot, args)
-                robot.openGripper()
-                time.sleep(1.0)
-                print("Has put down the piece at: ", place)
-
-                T_w_goal = pin.SE3(initial_rotation, initial_position)
-                moveL(args, robot, T_w_goal)
-                zero_robot_vel(robot, args)
-                print("Has moved back to inital pose: ", initial_position)
-
-            except KeyboardInterrupt:
-                print("Shutting down the chessbot.")
-                break
     finally:
         # Ensure GUI thread is cleaned up
         gui.stop()
