@@ -102,6 +102,10 @@ def extract_corner_coords(from_file = False):
         logging.info("Corner [%.1f]: [%.3f, %.3f, %.3f]", (i+1), *c)
     return corner_coords[0], corner_coords[1], corner_coords[2], corner_coords[3]
 
+def find_closest_corner(corner_coords):
+    distances = np.linalg.norm(corner_coords[:, :2],axis=1)
+    closest_index = np.argmin(distances)
+    return corner_coords[closest_index]
 
 def get_args() -> argparse.Namespace:
     parser = getMinimalArgParser()
@@ -271,13 +275,19 @@ if __name__ == "__main__":
     logging.info("Initial position of robot: [%.3f, %.3f, %.3f]", *initial_position)
 
     print("MARKUS TESTAR SAKER TA BORT, DENNA LIGGER PÅ RAD 262")
-    c1,c2,c3,c4 = extract_corner_coords("./corners.txt")
+    corner_coords = extract_corner_coords("./corners.txt")
+    closest_corner = find_closest_corner(corner_coords)
+    A1_coords = np.array([closest_corner[0] + 0.025, closest_corner[1] + 0.025],0.25) # find the midpoint of the A1 square (assuming the board is orientated so A1 is closest to the base frame)
+
     
 
 
 
 
+
     move_home(tool_orientation, initial_position)
+    move_home(tool_orientation, np.array([A1_coords[0],A1_coords[]]))
+
 
     try:
         while True:
@@ -320,6 +330,7 @@ if __name__ == "__main__":
             move_piece(piece_coords, target_coords, tool_orientation)
 
             move_home(tool_orientation, initial_position)
+            
 
                 
     except KeyboardInterrupt:
