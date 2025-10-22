@@ -19,7 +19,7 @@ def find_stockfish():
         return p
     raise FileNotFoundError("Stockfish binary not found. Install it or set STOCKFISH_PATH.")
 
-def bestmove_local(fen: str, think_ms: int = 300, options: dict | None = None) -> str:
+def best_move_local(fen: str, think_ms: int = 300, options: dict | None = None) -> str:
     """
     Return the best UCI move for the given FEN using a local Stockfish engine.
     - think_ms: time budget in milliseconds
@@ -38,6 +38,6 @@ if __name__ == "__main__":
     # Example
     fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     fen = "1nbqkbnr/Pppppppp/8/8/8/8/1PPPPPPP/RNBQKBNR w KQk - 0 1"
-    move = bestmove_local(fen, think_ms=300, options={"Threads": 2, "Skill Level": 15})
+    move = best_move_local(fen, think_ms=300, options={"Threads": 2, "Skill Level": 15})
     print(move)  # e.g., "e2e4"
     
