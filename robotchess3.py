@@ -2,6 +2,7 @@ from smc import getMinimalArgParser, getRobotFromArgs
 from smc.control.cartesian_space import getClikArgs
 from smc.control.cartesian_space.cartesian_space_point_to_point import moveL
 from computer_vision import stream_camera_frame_coords
+from StockFishing import best_move_local
 import pinocchio as pin
 
 import argparse
@@ -10,10 +11,13 @@ import time
 import cv2
 import threading
 import logging
+import chess
 
+""" ---------- DEFINE GLOBAL CONSTANTS ---------- """
 FILES = list("ABCDEFGH")
 RANKS = [str(i) for i in range(1, 9)]
 
+""" ---------- ROBOT MOVEMENT FUNCTIONS ---------- """
 def convert_coords(coords, from_file=False):
     x, y, z = coords
     H = np.fromfile(from_file)
@@ -33,12 +37,16 @@ def convert_coords(coords, from_file=False):
     return (H @ np.array([x, y, z, 1]))[:3]
 
 
-def get_grip_positions(coords):
+#TODO might need to change the offset to calc from 0 instead
+def get_grip_positions(coords, need_offset=False):
     """Return above, on, and place positions relative to the given point."""
+    offset = 0
+    if need_offset:
+        offset = 0.05
     c = np.asarray(coords, dtype=float).copy()
-    above = c + np.array([0.01, 0.0, 0.25])
-    on = c + np.array([0.01, 0.0, 0.15])
-    place = c + np.array([0.01, 0.0, 0.155])
+    above = c + np.array([0.01, 0.0, 0.25+offset])
+    on = c + np.array([0.01, 0.0, 0.15+offset])
+    place = c + np.array([0.01, 0.0, 0.155+offset])
     return above, on, place
 
 
@@ -51,7 +59,6 @@ def zero_robot_vel(robot, args):
 def move_piece(piece_coords, target_coords, tool_orientation, gripper_sleep=1.0):
     """Picks up piece at piece_coords, moves it to target coords.
     """
-
     above, on, place = get_grip_positions(piece_coords)
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
@@ -90,13 +97,43 @@ def move_piece(piece_coords, target_coords, tool_orientation, gripper_sleep=1.0)
     logging.info("Has moved the robot back to the above position: ", above)
 
 
-
-
 def move_home(tool_orientation, initial_position):
     T_w_goal = pin.SE3(tool_orientation, initial_position)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     logging.info("Has moved to inital pose: ", initial_position)
+
+
+def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1)
+    trash_coord = np.array()#TODO set value of thus    
+    T_w_trash = pin.SE3(tool_orientation, trash_coord)
+ 
+    above, on, place = get_grip_positions(piece_coords, is_royal)
+    T_w_goal = pin.SE3(tool_orientation, above)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    robot.openGripper()
+    logging.info("Has moved to position above the piece: ", above)
+
+    T_w_goal = pin.SE3(tool_orientation, on)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    robot.closeGripper()
+    time.sleep(gripper_sleep)
+    logging.info("Has moved to position on the piece and closed gripper: ", on)
+
+    T_w_goal = pin.SE3(tool_orientation, above)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    logging.info("Has lifted the piece to", above)
+
+    moveL(args, robot, T_w_trash)
+    zero_robot_vel(robot, args)
+    robot.openGripper()
+    time.sleep(gripper_sleep)
+    robot.closeGripper()
+    time.sleep(gripper_sleep)
+    logging.info("Has moved the piece to the trash: ", trash_coord)
 
 
 def extract_corner_coords(from_file = False):
@@ -170,6 +207,65 @@ def square_xy(name, centers):
     return np.array(centers[name.upper()])
 
 
+""" ----------- CHESS ENGINE FUNCTIONS ---------- """
+def parse_uci_chess(uci: str):
+    m = chess.Move.from_uci(uci)
+    frm = chess.square_name(m.from_square)   # "e2"
+    to  = chess.square_name(m.to_square)     # "e4"
+    promo = m.promotion and chess.piece_symbol(m.promotion).lower()
+    return frm, to, promo
+
+def update_fen_with_uci(fen, uci, default_promo: str | None = None):
+    """
+    Apply a UCI move to a FEN and return (new_fen, san).
+    - If the UCI lacks a promotion piece but one is required, uses default_promo (e.g., 'q').
+    - Raises ValueError if the move is illegal for the given FEN.
+    """
+
+    board = chess.Board(fen)
+
+    # If promotion is missing but needed (rare for engine moves; common for human input)
+    if default_promo and len(uci) == 4:
+        frm, to = uci[:2], uci[2:]
+        move = chess.Move.from_uci(uci)
+        # Check if this is a pawn reaching last rank → add promotion
+        if board.piece_at(chess.parse_square(frm)).piece_type == chess.PAWN:
+            to_sq = chess.parse_square(to)
+            rank = chess.square_rank(to_sq)
+            if rank in (0, 7):  # last rank
+                uci = uci + default_promo.lower()  # e.g., 'q'
+
+    move = chess.Move.from_uci(uci)
+
+    if move not in board.legal_moves:
+        raise ValueError(f"Illegal move {uci} for FEN: {fen}")
+
+    san = board.san(move)   # save SAN before pushing (pretty form like "exd5" or "O-O")
+    board.push(move)        # updates everything: castling rights, en passant, clocks
+    return board.fen(), san
+
+
+def is_royal_piece(fen, first_move)
+    """ Check if square is occupied på royal piece"""
+    try:
+        board = chess.Board(fen)
+        square = chess.parse_square(first_move.lower())
+        piece = board.piece_at(square)
+        return piece is not None and piece.piece_type in (chess.KING, chess.QUEEN)
+    except Exception: 
+        return False
+
+
+def is_capture_move(fen, move)
+    try:
+        board = chess.Board(fen)
+        check_capture_move = chess.Move.from_uci(move.strip().lower())
+        return board.is_capture(move)
+    except Exception:
+        return False
+
+
+""" ---------- ARGS ---------- """
 def get_args() -> argparse.Namespace:
     parser = getMinimalArgParser()
     parser.set_defaults(
@@ -182,6 +278,7 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+""" ----------- VISION FUNCTIONS ---------- """
 class _Gui:
     """Very small OpenCV UI that runs in a background thread."""
     def __init__(self, window_name="Detections"):
