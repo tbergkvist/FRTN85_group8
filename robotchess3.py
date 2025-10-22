@@ -306,7 +306,7 @@ piece2number = {
 
 if __name__ == "__main__":
     
-    corner_coords = extract_corner_cords("./corners.txt")
+    corner_coords = extract_corner_coords("./corners.txt")
     board_coords, info = build_board_from_corners(corner_coords)
     
     logging.basicConfig(
@@ -383,8 +383,8 @@ if __name__ == "__main__":
             
             command = input("Move piece from -> to (ex 'A1B3'): ")
             parts = parts = [command[i:i+2] for i in range(0, len(command), 2)]            
-            start_square = np.append(square_xy(parts[0], board_coords), 0.0)
-            end_square = np.append(square_xy(parts[1], board_coords), 0.0)
+            start_square = np.append(square_xy(parts[0], board_coords), 0.05)
+            end_square = np.append(square_xy(parts[1], board_coords), 0.05)
             move_piece(start_square, end_square, tool_orientation)            
                 
     except KeyboardInterrupt:
