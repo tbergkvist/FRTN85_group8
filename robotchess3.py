@@ -139,8 +139,8 @@ def build_board_from_corners(corners_xy):
     H8 = Opp
 
     # 4) Per-square step vectors (rank/file)
-    step_rank = (A8 - A1) / 7.0   # along ranks 1->8
-    step_file = (H1 - A1) / 7.0   # along files A->H
+    step_rank = (A8 - A1) / 8.0   # along ranks 1->8
+    step_file = (H1 - A1) / 8.0   # along files A->H
 
     # 5) Build all 64 square centers
     centers = {}
@@ -338,7 +338,8 @@ if __name__ == "__main__":
     logging.info("Initial position of robot: %s", initial_position)
 
     move_home(tool_orientation, initial_position)
-
+    start_position = np.append(square_xy("D4", board_coords), 0,15)
+    move_home(tool_orientation, start_position)
     try:
         while True:
             """logging.info("Looking at chess board using realsense camera.")
@@ -381,12 +382,14 @@ if __name__ == "__main__":
 
             move_home(tool_orientation, initial_position)"""
             
-            command = input("Move piece from -> to (ex 'A1B3'): ")
+            command = input("Move piece from -> to (ex 'A1B3'): ").capitalize()
             parts = parts = [command[i:i+2] for i in range(0, len(command), 2)]            
             start_square = np.append(square_xy(parts[0], board_coords), 0.05)
             end_square = np.append(square_xy(parts[1], board_coords), 0.05)
             move_piece(start_square, end_square, tool_orientation)            
-                
+            move_home(tool_orientation, start_position)            
+
+ 
     except KeyboardInterrupt:
         logging.info("Shutting down the chessbot.")
 
