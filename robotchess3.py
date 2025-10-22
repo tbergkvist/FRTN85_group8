@@ -92,6 +92,18 @@ def move_home(tool_orientation, initial_position):
     logging.info("Has moved to inital pose: ", initial_position)
 
 
+def extract_corner_coords(from_file = False):
+    if from_file == False:
+        return None
+
+    corner_coords = np.fromfile(from_file)
+    corner_coords.resize(4,3)
+    logging.info("Corners extracted from file: ")
+    for i, c in enumerate(corner_coords):
+        logging.info("Corner [%.1f]: [%.3f, %.3f, %.3f]", (i+1), *c)
+    return corner_coords[0], corner_coords[1], corner_coords[2], corner_coords[3]
+
+
 def build_board_from_corners(corners_xy):
     """
     corners_xy: iterable of 4 (x, y) float tuples in robot base frame.
@@ -148,7 +160,7 @@ def build_board_from_corners(corners_xy):
 
 def square_xy(name, centers):
     """Get (x,y) of a given square like 'E4' from centers dict."""
-    return centers[name.upper()]
+    return np.array(centers[name.upper()])
 
 
 def get_args() -> argparse.Namespace:
@@ -293,6 +305,10 @@ piece2number = {
 
 
 if __name__ == "__main__":
+    
+    corner_coords = extract_corner_cords("./corners.txt")
+    board_coords, info = build_board_from_corners(corner_coords)
+    
     logging.basicConfig(
         level=logging.INFO,                # Set the logging level
         format="%(asctime)s [%(levelname)s] %(message)s"  # Format of log messages
@@ -325,7 +341,7 @@ if __name__ == "__main__":
 
     try:
         while True:
-            logging.info("Looking at chess board using realsense camera.")
+            """logging.info("Looking at chess board using realsense camera.")
             pieces = next(realsense_stream)
             show_pieces_gui(pieces, gui)
 
@@ -363,8 +379,13 @@ if __name__ == "__main__":
 
             move_piece(piece_coords, target_coords, tool_orientation)
 
-            move_home(tool_orientation, initial_position)
-
+            move_home(tool_orientation, initial_position)"""
+            
+            command = input("Move piece from -> to (ex 'A1B3'): ")
+            parts = parts = [command[i:i+2] for i in range(0, len(command), 2)]            
+            start_square = np.append(square_xy(parts[0], board_coords), 0.0)
+            end_square = np.append(square_xy(parts[1], board_coords), 0.0)
+            move_piece(start_square, end_square, tool_orientation)            
                 
     except KeyboardInterrupt:
         logging.info("Shutting down the chessbot.")
