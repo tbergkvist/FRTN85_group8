@@ -84,6 +84,13 @@ def move_piece(piece_coords, target_coords, tool_orientation, gripper_sleep=1.0)
     time.sleep(gripper_sleep)
     logging.info("Has put down the piece at: ", place)
 
+    T_w_goal = pin.SE3(tool_orientation, above)
+    moveL(args, robot, T_w_goal)
+    zero_robot_vel(robot, args)
+    logging.info("Has moved the robot back to the above position: ", above)
+
+
+
 
 def move_home(tool_orientation, initial_position):
     T_w_goal = pin.SE3(tool_orientation, initial_position)
@@ -338,7 +345,7 @@ if __name__ == "__main__":
     logging.info("Initial position of robot: %s", initial_position)
 
     move_home(tool_orientation, initial_position)
-    start_position = np.append(square_xy("D4", board_coords), 0,15)
+    start_position = np.append(square_xy("D4", board_coords), 0.3)
     move_home(tool_orientation, start_position)
     try:
         while True:
