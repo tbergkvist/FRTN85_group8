@@ -304,7 +304,8 @@ if __name__ == "__main__":
 
     corner_coords = extract_corner_coords("./corners.txt")
     board_coords, info = build_board_from_corners(corner_coords)
- 
+    logging.info("Board info: ")
+    print(info)
     initial_position = np.array(robot.T_w_e.translation).astype(float)
     logging.info("Initial position of robot: [%.3f, %.3f, %.3f]", *initial_position)
     move_home(initial_position, tool_orientation)
