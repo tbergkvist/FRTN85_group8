@@ -267,6 +267,55 @@ def is_capture_move(fen, move):
     except Exception:
         return False
 
+def is_casteling_move(fen: str, uci: str):
+    """
+    Heuristic: detects castling from UCI + FEN (standard chess).
+    Returns:
+      (is_castling: bool, king_uci: str|None, rook_uci: str|None, side: 'white'|'black'|None, kind: 'kingside'|'queenside'|None)
+
+    Example success: (True, 'e1g1', 'h1f1', 'white', 'kingside')
+    Example failure: (False, None, None, None, None)
+    """
+    try:
+        board = chess.Board(fen)
+        m = chess.Move.from_uci(uci.strip().lower())
+    except Exception:
+        return False, None, None, None, None
+
+    frm, to = m.from_square, m.to_square
+    piece = board.piece_at(frm)
+
+    # Must be a king of the side to move
+    if piece is None or piece.piece_type != chess.KING or piece.color != board.turn:
+        return False, None, None, None, None
+
+    # Same rank and king moved exactly two files -> castling pattern
+    same_rank = chess.square_rank(frm) == chess.square_rank(to)
+    two_files = abs(chess.square_file(frm) - chess.square_file(to)) == 2
+    if not (same_rank and two_files):
+        return False, None, None, None, None
+
+    side = "white" if piece.color == chess.WHITE else "black"
+    kingside = chess.square_file(to) > chess.square_file(frm)
+    kind = "kingside" if kingside else "queenside"
+
+    # Build king and rook UCI moves
+    king_from = chess.square_name(frm)
+    king_to   = chess.square_name(to)
+
+    if piece.color == chess.WHITE:
+        rook_from = "h1" if kingside else "a1"
+        rook_to   = "f1" if kingside else "d1"
+    else:
+        rook_from = "h8" if kingside else "a8"
+        rook_to   = "f8" if kingside else "d8"
+
+    king_uci = f"{king_from}{king_to}"
+    rook_uci = f"{rook_from}{rook_to}"
+    return True, king_uci, rook_uci, side, kind
+
+def chess_coord_to_robot_coord(chess_move,board_coords):
+    return np.append(square_xy(chess_move,board_coords), 0.05)
 
 """ ---------- ARGS ---------- """
 def get_args() -> argparse.Namespace:
@@ -276,7 +325,7 @@ def get_args() -> argparse.Namespace:
     plotter=False,
     gripper="onrobot",
     )
-    parser.description = "Chess playing robot madness."
+    parser.description = "Chess playing robot madness." 
     parser = getClikArgs(parser)
     return parser.parse_args()
 
@@ -315,6 +364,11 @@ if __name__ == "__main__":
     start_position = np.append(square_xy("D4", board_coords), 0.3)
     move_home(start_position, tool_orientation)
 
+    #starting_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" #this one has casteling rights for both kings
+    starting_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1" #default fen currently casteling removed. 
+    current_fen = starting_fen
+    
+
     """Is this good to have or should we refactor?"""
     """Chose mode for the code, manual or robot."""        
     robot_mode = int(input("Manual mode or Robot solo: (1 or 2) "))
@@ -327,6 +381,8 @@ if __name__ == "__main__":
                 
                 start_square = np.append(square_xy(parts[0], board_coords), 0.05)
                 end_square = np.append(square_xy(parts[1], board_coords), 0.05)
+                start_square = chess_coord_to_robot_coord(parts[0],board_coords) #NU KAN DU TA BORT DOM GAMLA
+                end_square = chess_coord_to_robot_coord(parts[1],board_coords)
                 
                 move_piece(start_square, end_square, tool_orientation)            
                 move_home(start_position, tool_orientation)            
@@ -335,10 +391,13 @@ if __name__ == "__main__":
             while True:
                 command = input("Move piece from -> to (ex 'a1b3'): ").lower()
                 parts = [command[i:i+2] for i in range(0, len(command), 2)]            
-                
-                start_square = np.append(square_xy(parts[0], board_coords), 0.05)
+                    
+
+                start_square = np.append(square_xy(parts[0], board_coords), 0.05) 
                 end_square = np.append(square_xy(parts[1], board_coords), 0.05)
                 
+                start_square = chess_coord_to_robot_coord(parts[0],board_coords) # NU KAN DU TA BORT DOM GAMLA 
+                end_square = chess_coord_to_robot_coord(parts[1],board_coords)
                 royal = True
                 capture_piece(end_square, tool_orientation, royal)
                 move_home(start_position, tool_orientation)
@@ -349,10 +408,50 @@ if __name__ == "__main__":
                 1. Send the setup to StockFish
                 2. Do the move
                     i. Check for royal and check for capture
-                    ii. Want to fix castle and pawn -> queen whatever it is called
+                    ii. Want to fix castle and pawn -> queen whatever it is called, This is called promotion
                 3. Update the board? Or is that manual?
+             
                 """
+        elif robot_mode == 3:
+            
+            # Ge boardstate till engine, som ger oss vad den tycker är det bästa movet
+            propposed_move = best_move_local(current_fen, think_ms=500)
+            print("The best move is ",propposed_move)
+
+            #plocka ut vilka rutor det draget innebär (HÄR MÅSTE VI UNDERSÖKA OM MIN KOD FÖR CASTELING GER DET JAG FÖRVÄNTAR MIG ATT DEN SKA GE FÖR JAG HITTAR INTE DET PÅ INTERNET)
+            start_square, end_square, promo = parse_uci_chess(propposed_move)
+
+            #kolla först om movet den vill göra innebär en capture, om så, utför capturen
+            if is_capture_move(current_fen,propposed_move):
+                capture_piece(end_square,tool_orientation,is_royal_piece(current_fen,end_square))
+                move_home(start_position, tool_orientation)
+                move_piece(chess_coord_to_robot_coord(start_square,board_coords), chess_coord_to_robot_coord(end_square,board_coords), tool_orientation, is_royal_piece(current_fen,start_square))
+                move_home(start_position, tool_orientation)
+            else: 
+                #om movet inte är en capture, kolla då om det är en casteling move, om ja, utför casteling proceedure genom att skicka två move kommand.
+                is_castleing, king_move,rook_move,side,kind = is_casteling_move(current_fen,propposed_move)
+                if(is_castleing):
+                    king_start_square, king_end_square = parse_uci_chess(king_move)
+                    king_start_square_position = chess_coord_to_robot_coord(king_start_square,board_coords)
+                    king_end_square_position = chess_coord_to_robot_coord(king_end_square,board_coords)
+                    
+                    rook_start_square, rook_end_square = parse_uci_chess(king_move)
+                    rook_start_square_position = chess_coord_to_robot_coord(rook_start_square,board_coords)
+                    rook_end_squareposition = chess_coord_to_robot_coord(rook_end_square,board_coords)
+
+                    move_piece(king_start_square_position, king_end_square_position, tool_orientation,True) # Vi vet att kungen är royal    
+
+                    move_piece(rook_start_square_position, rook_end_squareposition, tool_orientation) 
+                    move_home(start_position, tool_orientation)
+                else:
+
+                    move_piece(start_square, end_square, tool_orientation,is_royal_piece(fen,start_square))            
+                    move_home(start_position, tool_orientation)      
+
+                
+            newFen, san = update_fen_with_uci(current_fen,propposed_move)
         else:
+
             logging.CRITICAL("Bad robot mode input. Quitting.")
 
 
