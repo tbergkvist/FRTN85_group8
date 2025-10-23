@@ -14,7 +14,7 @@ import logging
 import chess
 
 """ ---------- DEFINE GLOBAL CONSTANTS ---------- """
-FILES = list("ABCDEFGH")
+FILES = list("abcdefgh")
 RANKS = [str(i) for i in range(1, 9)]
 
 """ ---------- ROBOT MOVEMENT FUNCTIONS ---------- """
@@ -106,7 +106,7 @@ def move_home(tool_orientation, initial_position):
 
 def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1):
     """Picks up piece at piece_coords, throws it in trash."""
-    trash_coord = np.array([0.3, 0.0, 0.25)#TODO set value of thus    
+    trash_coord = np.array([0.3, 0.0, 0.25])#TODO set value of thus    
     T_w_trash = pin.SE3(tool_orientation, trash_coord)
  
     above, on, place = get_grip_positions(piece_coord, is_royal)
@@ -450,7 +450,7 @@ if __name__ == "__main__":
 
     """Is this good to have or should we refactor?"""
     """Chose mode for the code, manual, robot or vision."""        
-    robot_mode = input("Manual mode or Robot solo: (1 or 2) ")
+    robot_mode = int(input("Manual mode or Robot solo: (1 or 2) "))
     
     try:
         if robot_mode == 1:
@@ -468,6 +468,14 @@ if __name__ == "__main__":
  
         elif robot_mode == 2:
             while True:
+                command = input("Move piece from -> to (ex 'a1b3'): ").lower()
+                parts = [command[i:i+2] for i in range(0, len(command), 2)]            
+                
+                start_square = np.append(square_xy(parts[0], board_coords), 0.05)
+                end_square = np.append(square_xy(parts[1], board_coords), 0.05)
+                
+                capture_piece(start_square, tool_orientation)
+
                 """
                 1. Send the setup to StockFish
                 2. Do the move
