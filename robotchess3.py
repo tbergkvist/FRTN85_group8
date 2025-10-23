@@ -427,21 +427,20 @@ if __name__ == "__main__":
                 move_home(start_position, tool_orientation)
         
         elif robot_mode == 3:
-            while True:
-                logging.info("Test casteling, make sure that a king is on e1 and a rook is on h1 and f1 g1 is empty")
-                current_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQK2R w - - 0 1"
-                propposed_move = "e1g1"
+            logging.info("Test casteling, make sure that a king is on e1 and a rook is on h1 and f1 g1 is empty")
+            current_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQK2R w - - 0 1"
+            proposed_move = "e8c8"
 
-                is_castleing, king_move, rook_move, side, kind = is_casteling_move(current_fen,propposed_move)
-                king_start_square, king_end_square = parse_uci_chess(king_move)                
-                rook_start_square, rook_end_square = parse_uci_chess(rook_move)
+            is_castleing, king_move, rook_move, side, kind = is_casteling_move(current_fen,proposed_move)
+            king_start_square, king_end_square, promo = parse_uci_chess(king_move)                
+            rook_start_square, rook_end_square, promo = parse_uci_chess(rook_move)
 
-                move_piece(chess_coord_to_robot_coord(king_start_square,board_coords), chess_coord_to_robot_coord(king_end_square,board_coords), tool_orientation,is_royal(current_fen, king_start_square))
-                move_piece(chess_coord_to_robot_coord(rook_start_square,board_coords), chess_coord_to_robot_coord(rook_end_square,board_coords), tool_orientation) 
-                move_home(start_position, tool_orientation)
+            move_piece(chess_coord_to_robot_coord(rook_start_square,board_coords), chess_coord_to_robot_coord(rook_end_square,board_coords), tool_orientation) 
+            move_piece(chess_coord_to_robot_coord(king_start_square,board_coords), chess_coord_to_robot_coord(king_end_square,board_coords), tool_orientation,is_royal_piece(current_fen, king_start_square))
+            move_home(start_position, tool_orientation)
 
-        elif robot_mode == 4:
-            while True:
+        #elif robot_mode == 4:
+            #while True:
 
     
         elif robot_mode == 5:
@@ -461,11 +460,11 @@ if __name__ == "__main__":
                 
                 elif is_castleing:
                     logging.info("Current move is castle")
-                    king_start_square, king_end_square = parse_uci_chess(king_move)                
-                    rook_start_square, rook_end_square = parse_uci_chess(rook_move)
+                    king_start_square, king_end_square, promo = parse_uci_chess(king_move)                
+                    rook_start_square, rook_end_square, promo = parse_uci_chess(rook_move)
 
-                    move_piece(chess_coord_to_robot_coord(king_start_square,board_coords), chess_coord_to_robot_coord(king_end_square,board_coords), tool_orientation,is_royal(current_fen, king_start_square))
                     move_piece(chess_coord_to_robot_coord(rook_start_square,board_coords), chess_coord_to_robot_coord(rook_end_square,board_coords), tool_orientation) 
+                    move_piece(chess_coord_to_robot_coord(king_start_square,board_coords), chess_coord_to_robot_coord(king_end_square,board_coords), tool_orientation,is_royal_piece(current_fen, king_start_square))
                     move_home(start_position, tool_orientation)
 
                 else:
