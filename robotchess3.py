@@ -74,7 +74,7 @@ def move_piece(piece_coords, target_coords, tool_orientation, is_royal=False, gr
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has lifted the piece to", above)
+    logging.info("Has lifted the piece to [%.3f, %.3f, %.3f]", *above)
 
     above, on, place = get_grip_positions(target_coords, is_royal)
     T_w_goal = pin.SE3(tool_orientation, above)
@@ -282,8 +282,8 @@ def get_args() -> argparse.Namespace:
 if __name__ == "__main__":
     
     logging.basicConfig(
-        level=logging.INFO,                # Set the logging level
-        format="%(asctime)s [%(levelname)s] %(message)s"  # Format of log messages
+        level=logging.INFO,
+        format="%(message)s"
     )
 
     args = get_args()
