@@ -436,10 +436,11 @@ if __name__ == "__main__":
 
             #plocka ut vilka rutor det draget innebär (HÄR MÅSTE VI UNDERSÖKA OM MIN KOD FÖR CASTELING GER DET JAG FÖRVÄNTAR MIG ATT DEN SKA GE FÖR JAG HITTAR INTE DET PÅ INTERNET)
             start_square, end_square, promo = parse_uci_chess(propposed_move)
+            
 
             #kolla först om movet den vill göra innebär en capture, om så, utför capturen
             if is_capture_move(current_fen,propposed_move):
-                capture_piece(end_square,tool_orientation,is_royal_piece(current_fen,end_square))
+                capture_piece(chess_coord_to_robot_coord(end_square,board_coords),tool_orientation,is_royal_piece(current_fen,end_square))
                 move_home(start_position, tool_orientation)
                 move_piece(chess_coord_to_robot_coord(start_square,board_coords), chess_coord_to_robot_coord(end_square,board_coords), tool_orientation, is_royal_piece(current_fen,start_square))
                 move_home(start_position, tool_orientation)
@@ -461,11 +462,12 @@ if __name__ == "__main__":
                     move_home(start_position, tool_orientation)
                 else:
 
-                    move_piece(start_square, end_square, tool_orientation,is_royal_piece(fen,start_square))            
+                    move_piece(chess_coord_to_robot_coord(start_square,board_coords), chess_coord_to_robot_coord(end_square,board_coords), tool_orientation,is_royal_piece(current_fen,start_square)) #            
                     move_home(start_position, tool_orientation)      
 
                 
-            newFen, san = update_fen_with_uci(current_fen,propposed_move)
+            new_fen, san = update_fen_with_uci(current_fen,propposed_move)
+            current_fen = new_fen
         else:
 
             logging.CRITICAL("Bad robot mode input. Quitting.")
