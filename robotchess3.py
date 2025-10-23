@@ -104,11 +104,11 @@ def move_home(tool_orientation, initial_position):
     logging.info("Has moved to inital pose: ", initial_position)
 
 
-def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1)
+def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1):
     trash_coord = np.array()#TODO set value of thus    
     T_w_trash = pin.SE3(tool_orientation, trash_coord)
  
-    above, on, place = get_grip_positions(piece_coords, is_royal)
+    above, on, place = get_grip_positions(piece_coord, is_royal)
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
@@ -245,7 +245,7 @@ def update_fen_with_uci(fen, uci, default_promo: str | None = None):
     return board.fen(), san
 
 
-def is_royal_piece(fen, first_move)
+def is_royal_piece(fen, first_move):
     """ Check if square is occupied på royal piece"""
     try:
         board = chess.Board(fen)
@@ -256,7 +256,7 @@ def is_royal_piece(fen, first_move)
         return False
 
 
-def is_capture_move(fen, move)
+def is_capture_move(fen, move):
     try:
         board = chess.Board(fen)
         check_capture_move = chess.Move.from_uci(move.strip().lower())
