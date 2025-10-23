@@ -442,9 +442,12 @@ if __name__ == "__main__":
                 move_home(start_position, tool_orientation)
         
         elif robot_mode == 3:
-            logging.info("Test casteling, make sure that a king is on e1 and a rook is on h1 and f1 g1 is empty")
-            current_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQK2R w - - 0 1"
+            logging.info("Test casteling, make sure that a kingand rook is on correct squares and empty between")
             proposed_move = "e8c8"
+            if proposed_move == "e8c8" or "e8g8":
+                current_move = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R b - - 0 1"
+            else: 
+                current_move = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w - - 0 1"
 
             is_castleing, king_move, rook_move, side, kind = is_casteling_move(current_fen,proposed_move)
             king_start_square, king_end_square, promo = parse_uci_chess(king_move)                
