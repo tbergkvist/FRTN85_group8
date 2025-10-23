@@ -48,6 +48,19 @@ def get_grip_positions(coords, royal_offset=False):
     return above, on, place
 
 
+def set_gripper_rotation(R_initial, vector_alignment):
+    angle_component = vector_alignment[0] / np.linalg.norm(vector_alignment)
+    angle = np.arccos(np.clip(angle_component, -1, 1))
+    
+    R_2x2 = [np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]
+    R_2x2 = np.array(R_2x2)
+
+    R_3x3 = np.eye(3)
+    R_3x3[:2, :2] = R_2x2
+    return (R_initial @ R_3x3)
+
+
+    return None
 def zero_robot_vel(robot, args):
     """Zero end effector spatial velocity if running on real hardware."""
     if args.real:
@@ -345,7 +358,7 @@ if __name__ == "__main__":
 
     robot._step()
 
-    tool_orientation = np.array(
+    initial_tool_orientation = np.array(
         [
             [1.0, 0.0, 0.0],
             [0.0, -1.0, 0.0],
@@ -355,8 +368,11 @@ if __name__ == "__main__":
 
     corner_coords = extract_corner_coords("./corners.txt")
     board_coords, info = build_board_from_corners(corner_coords)
-    logging.info("Board info: ")
-    print(info)
+    
+    alignment_vector = info["step_rank"]
+    tool_orientation = set_gripper_rotation(initial_tool_orientation, alignment_vector)
+    logging.info("Gripper orientation: [%.3f, %.3f, %.3f]", *tool_orientation)    
+ 
     initial_position = np.array(robot.T_w_e.translation).astype(float)
     logging.info("Initial position of robot: [%.3f, %.3f, %.3f]", *initial_position)
     move_home(initial_position, tool_orientation)
