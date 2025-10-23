@@ -437,33 +437,26 @@ if __name__ == "__main__":
             #plocka ut vilka rutor det draget innebär (HÄR MÅSTE VI UNDERSÖKA OM MIN KOD FÖR CASTELING GER DET JAG FÖRVÄNTAR MIG ATT DEN SKA GE FÖR JAG HITTAR INTE DET PÅ INTERNET)
             start_square, end_square, promo = parse_uci_chess(propposed_move)
             
+            is_castleing, king_move, rook_move, side, kind = is_casteling_move(current_fen,propposed_move)
+
 
             #kolla först om movet den vill göra innebär en capture, om så, utför capturen
             if is_capture_move(current_fen,propposed_move):
                 capture_piece(chess_coord_to_robot_coord(end_square,board_coords),tool_orientation,is_royal_piece(current_fen,end_square))
                 move_home(start_position, tool_orientation)
                 move_piece(chess_coord_to_robot_coord(start_square,board_coords), chess_coord_to_robot_coord(end_square,board_coords), tool_orientation, is_royal_piece(current_fen,start_square))
-                move_home(start_position, tool_orientation)
-            else: 
+                move_home(start_position, tool_orientation) 
                 #om movet inte är en capture, kolla då om det är en casteling move, om ja, utför casteling proceedure genom att skicka två move kommand.
-                is_castleing, king_move,rook_move,side,kind = is_casteling_move(current_fen,propposed_move)
-                if(is_castleing):
-                    king_start_square, king_end_square = parse_uci_chess(king_move)
-                    king_start_square_position = chess_coord_to_robot_coord(king_start_square,board_coords)
-                    king_end_square_position = chess_coord_to_robot_coord(king_end_square,board_coords)
-                    
-                    rook_start_square, rook_end_square = parse_uci_chess(king_move)
-                    rook_start_square_position = chess_coord_to_robot_coord(rook_start_square,board_coords)
-                    rook_end_squareposition = chess_coord_to_robot_coord(rook_end_square,board_coords)
+            elif(is_castleing):
+                king_start_square, king_end_square = parse_uci_chess(king_move)                
+                rook_start_square, rook_end_square = parse_uci_chess(king_move)
 
-                    move_piece(king_start_square_position, king_end_square_position, tool_orientation,True) # Vi vet att kungen är royal    
-
-                    move_piece(rook_start_square_position, rook_end_squareposition, tool_orientation) 
-                    move_home(start_position, tool_orientation)
-                else:
-
-                    move_piece(chess_coord_to_robot_coord(start_square,board_coords), chess_coord_to_robot_coord(end_square,board_coords), tool_orientation,is_royal_piece(current_fen,start_square)) #            
-                    move_home(start_position, tool_orientation)      
+                move_piece(chess_coord_to_robot_coord(king_start_square,board_coords), chess_coord_to_robot_coord(king_end_square,board_coords), tool_orientation,True) # Vi vet att kungen är royal
+                move_piece(chess_coord_to_robot_coord(rook_start_square,board_coords), chess_coord_to_robot_coord(rook_end_square,board_coords), tool_orientation) 
+                move_home(start_position, tool_orientation)
+            else:
+                move_piece(chess_coord_to_robot_coord(start_square,board_coords), chess_coord_to_robot_coord(end_square,board_coords), tool_orientation,is_royal_piece(current_fen,start_square)) #            
+                move_home(start_position, tool_orientation)      
 
                 
             new_fen, san = update_fen_with_uci(current_fen,propposed_move)
