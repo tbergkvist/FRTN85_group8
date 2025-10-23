@@ -409,7 +409,6 @@ if __name__ == "__main__":
 
     starting_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" #this one has casteling rights for both kings
     #starting_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1" #default fen currently casteling removed. 
-    starting_fen = "5rk1/2p2ppp/bnp1q3/p1bpP3/2P5/1P3NP1/P3QPBP/2B2RK1 b - - 0 1"
     current_fen = starting_fen
     
     robot_mode = int(input("1. Test basic piece movement.\n2. Test capture move.\n3. Test casteling.\n4. Let robot play chess.\n(1, 2, 3, 4): "))
