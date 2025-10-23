@@ -12,6 +12,20 @@ import logging
 import chess, chess.engine
 import os, shutil
 
+
+""" ---------- ARGS ---------- """
+def get_args() -> argparse.Namespace:
+    parser = getMinimalArgParser()
+    parser.set_defaults(
+    robot_ip="192.168.1.150",
+    plotter=False,
+    gripper="onrobot",
+    )
+    parser.description = "Chess playing robot madness." 
+    parser = getClikArgs(parser)
+    return parser.parse_args()
+
+
 """ ---------- DEFINE GLOBAL CONSTANTS ---------- """
 FILES = list("abcdefgh")
 RANKS = [str(i) for i in range(1, 9)]
@@ -342,19 +356,6 @@ def best_move_local(fen: str, think_ms: int = 300, options: dict | None = None) 
             engine.configure(options)
         result = engine.play(board, chess.engine.Limit(time=think_ms / 1000.0))
         return result.move.uci()
-
-
-""" ---------- ARGS ---------- """
-def get_args() -> argparse.Namespace:
-    parser = getMinimalArgParser()
-    parser.set_defaults(
-    robot_ip="192.168.1.150",
-    plotter=False,
-    gripper="onrobot",
-    )
-    parser.description = "Chess playing robot madness." 
-    parser = getClikArgs(parser)
-    return parser.parse_args()
 
 
 if __name__ == "__main__":
