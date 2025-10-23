@@ -184,7 +184,9 @@ def build_board_from_corners(corners_xy):
     # 4) Per-square step vectors (rank/file)
     step_rank = (A8 - A1) / 8.0   # along ranks 1->8
     step_file = (H1 - A1) / 8.0   # along files A->H
-
+    step_rank = (step_rank / np.linalg.norm(step_rank)) * 0.045
+    step_file = (step_file / np.linalg.norm(step_file)) * 0.045
+        
     # 5) Build all 64 square centers
     centers = {}
     for r in range(8):      # rank index 0..7 (1..8) 
