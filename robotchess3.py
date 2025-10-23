@@ -15,7 +15,7 @@ import chess
 """ ---------- DEFINE GLOBAL CONSTANTS ---------- """
 FILES = list("abcdefgh")
 RANKS = [str(i) for i in range(1, 9)]
-
+global start_position
 
 """ ---------- ROBOT MOVEMENT FUNCTIONS ---------- """
 def convert_coords(coords, from_file=False):
@@ -102,7 +102,7 @@ def move_home(initial_position, tool_orientation):
     logging.info("Has moved to inital pose: [%.3f, %.3f, %.3f]", *initial_position)
 
 
-def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1, trash_coord=np.array([0.3, -0.1, 0.25])):
+def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1, trash_coord=np.array([0.4, -0.1, 0.3])):
     """Picks up piece at piece_coords, throws it in trash.""" 
  
     above, on, place = get_grip_positions(piece_coord, is_royal)
@@ -123,7 +123,8 @@ def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     logging.info("Has lifted the piece to [%.3f, %.3f, %.3f]", *above)
-    #TODO add intemidiat moveL
+    T_w_home = pin.SE3(tool_orientation, start_position)
+    moveL(args, robot, T_w_home)
     T_w_trash = pin.SE3(tool_orientation, trash_coord)
     moveL(args, robot, T_w_trash)
     zero_robot_vel(robot, args)
