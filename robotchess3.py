@@ -3,8 +3,8 @@ from smc.control.cartesian_space import getClikArgs
 from smc.control.cartesian_space.cartesian_space_point_to_point import moveL
 from computer_vision import stream_camera_frame_coords
 from StockFishing import best_move_local
-import pinocchio as pin
 
+import pinocchio as pin
 import argparse
 import numpy as np
 import time
@@ -38,10 +38,10 @@ def convert_coords(coords, from_file=False):
 
 
 #TODO might need to change the offset to calc from 0 instead
-def get_grip_positions(coords, need_offset=False):
+def get_grip_positions(coords, royal_offset=False):
     """Return above, on, and place positions relative to the given point."""
     offset = 0
-    if need_offset:
+    if royal_offset:
         offset = 0.05
     c = np.asarray(coords, dtype=float).copy()
     above = c + np.array([0.01, 0.0, 0.25+offset])
@@ -56,10 +56,10 @@ def zero_robot_vel(robot, args):
         robot.sendVelocityCommandToReal([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 
-def move_piece(piece_coords, target_coords, tool_orientation, gripper_sleep=1.0):
+def move_piece(piece_coords, target_coords, tool_orientation, is_royal=False, gripper_sleep=1.0):
     """Picks up piece at piece_coords, moves it to target coords.
     """
-    above, on, place = get_grip_positions(piece_coords)
+    above, on, place = get_grip_positions(move_piece_coords, is_royal)
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
@@ -78,7 +78,7 @@ def move_piece(piece_coords, target_coords, tool_orientation, gripper_sleep=1.0)
     zero_robot_vel(robot, args)
     logging.info("Has lifted the piece to", above)
 
-    above, on, place = get_grip_positions(target_coords)
+    above, on, place = get_grip_positions(target_coords, is_royal)
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
@@ -105,7 +105,8 @@ def move_home(tool_orientation, initial_position):
 
 
 def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1):
-    trash_coord = np.array()#TODO set value of thus    
+    """Picks up piece at piece_coords, throws it in trash."""
+    trash_coord = np.array([0.3, 0.0, 0.25)#TODO set value of thus    
     T_w_trash = pin.SE3(tool_orientation, trash_coord)
  
     above, on, place = get_grip_positions(piece_coord, is_royal)
@@ -137,6 +138,7 @@ def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0
 
 
 def extract_corner_coords(from_file = False):
+    """Extract the corner coordinates in the robot frame from the file."""
     if from_file == False:
         return None
 
@@ -204,7 +206,7 @@ def build_board_from_corners(corners_xy):
 
 def square_xy(name, centers):
     """Get (x,y) of a given square like 'E4' from centers dict."""
-    return np.array(centers[name.upper()])
+    return np.array(centers[name.lower()])
 
 
 """ ----------- CHESS ENGINE FUNCTIONS ---------- """
@@ -246,7 +248,7 @@ def update_fen_with_uci(fen, uci, default_promo: str | None = None):
 
 
 def is_royal_piece(fen, first_move):
-    """ Check if square is occupied på royal piece"""
+    """ Check if square is occupied på royal piece."""
     try:
         board = chess.Board(fen)
         square = chess.parse_square(first_move.lower())
@@ -257,6 +259,7 @@ def is_royal_piece(fen, first_move):
 
 
 def is_capture_move(fen, move):
+    """Check if move captures other piece."""
     try:
         board = chess.Board(fen)
         check_capture_move = chess.Move.from_uci(move.strip().lower())
@@ -410,9 +413,6 @@ piece2number = {
 
 if __name__ == "__main__":
     
-    corner_coords = extract_corner_coords("./corners.txt")
-    board_coords, info = build_board_from_corners(corner_coords)
-    
     logging.basicConfig(
         level=logging.INFO,                # Set the logging level
         format="%(asctime)s [%(levelname)s] %(message)s"  # Format of log messages
@@ -438,65 +438,88 @@ if __name__ == "__main__":
         ]
     )
 
+    corner_coords = extract_corner_coords("./corners.txt")
+    board_coords, info = build_board_from_corners(corner_coords)
+ 
     initial_position = np.array(robot.T_w_e.translation).astype(float)
     logging.info("Initial position of robot: %s", initial_position)
-
     move_home(tool_orientation, initial_position)
+    
     start_position = np.append(square_xy("D4", board_coords), 0.3)
     move_home(tool_orientation, start_position)
+
+    """Is this good to have or should we refactor?"""
+    """Chose mode for the code, manual, robot or vision."""        
+    robot_mode = input("Manual mode or Robot solo: (1 or 2) ")
+    
     try:
-        while True:
-            """logging.info("Looking at chess board using realsense camera.")
-            pieces = next(realsense_stream)
-            show_pieces_gui(pieces, gui)
-
-            try:
-                logging.info(
-                    "Currently seeing these pieces: %s", [number2piece[p] for p in pieces['class']])
-            except Exception:
-                logging.info("Currently seeing these pieces: %s", pieces)
-
-            piece = None
-            while piece is None:
-                try:
-                    piece = piece2number[input("Piece to move: ").lower()]
-                except Exception:
-                    logging.info("Bad input.")
-
-            command = np.array(
-                [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
-            )
-            command = np.append(command, 0.0)
-            logging.info("Will move the piece this much in x and y: %s", command)
-
-            piece_coords = None
-            if piece in pieces["class"]:
-                index = pieces["class"].index(piece)
-                center = pieces["center_point"][index]
-                piece_coords = convert_coords(center, "./H.txt")
-                logging.info("Chess piece found at: %s", piece_coords)
-
-            if piece_coords is None:
-                logging.info("Could not find your piece. Try again.")
-                continue
-
-            target_coords = np.asarray(piece_coords, dtype=float) + np.asarray(command, dtype=float)
-
-            move_piece(piece_coords, target_coords, tool_orientation)
-
-            move_home(tool_orientation, initial_position)"""
-            
-            command = input("Move piece from -> to (ex 'A1B3'): ").capitalize()
-            parts = parts = [command[i:i+2] for i in range(0, len(command), 2)]            
-            start_square = np.append(square_xy(parts[0], board_coords), 0.05)
-            end_square = np.append(square_xy(parts[1], board_coords), 0.05)
-            move_piece(start_square, end_square, tool_orientation)            
-            move_home(tool_orientation, start_position)            
+        if robot_mode == 1:
+            while True:
+                command = input("Move piece from -> to (ex 'a1b3'): ").lower()
+                parts = parts = [command[i:i+2] for i in range(0, len(command), 2)]            
+                
+                start_square = np.append(square_xy(parts[0], board_coords), 0.05)
+                end_square = np.append(square_xy(parts[1], board_coords), 0.05)
+                
+                move_piece(start_square, end_square, tool_orientation)            
+                move_home(tool_orientation, start_position)            
+                """Need to test 1. royal piece 2. throw piece"""
 
  
+        elif robot_mode == 2:
+            while True:
+                """
+                1. Send the setup to StockFish
+                2. Do the move
+                    i. Check for royal and check for capture
+                    ii. Want to fix castle and pawn -> queen whatever it is called
+                3. Update the board? Or is that manual?
+                """
+        else:
+            while True:
+                """logging.info("Looking at chess board using realsense camera.")
+                pieces = next(realsense_stream)
+                show_pieces_gui(pieces, gui)
+
+                try:
+                    logging.info(
+                        "Currently seeing these pieces: %s", [number2piece[p] for p in pieces['class']])
+                except Exception:
+                    logging.info("Currently seeing these pieces: %s", pieces)
+
+                piece = None
+                while piece is None:
+                    try:
+                        piece = piece2number[input("Piece to move: ").lower()]
+                    except Exception:
+                        logging.info("Bad input.")
+
+                command = np.array(
+                    [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
+                )
+                command = np.append(command, 0.0)
+                logging.info("Will move the piece this much in x and y: %s", command)
+
+                piece_coords = None
+                if piece in pieces["class"]:
+                    index = pieces["class"].index(piece)
+                    center = pieces["center_point"][index]
+                    piece_coords = convert_coords(center, "./H.txt")
+                    logging.info("Chess piece found at: %s", piece_coords)
+
+                if piece_coords is None:
+                    logging.info("Could not find your piece. Try again.")
+                    continue
+
+                target_coords = np.asarray(piece_coords, dtype=float) + np.asarray(command, dtype=float)
+
+                move_piece(piece_coords, target_coords, tool_orientation)
+
+                move_home(tool_orientation, initial_position)"""
+                
+
     except KeyboardInterrupt:
         logging.info("Shutting down the chessbot.")
-
 
     finally:
         # Ensure GUI thread is cleaned up
