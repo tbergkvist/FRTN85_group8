@@ -31,6 +31,19 @@ FILES = list("abcdefgh")
 RANKS = [str(i) for i in range(1, 9)]
 global start_position
 
+""" ---------- ARGS ---------- """
+def get_args() -> argparse.Namespace:
+    parser = getMinimalArgParser()
+    parser.set_defaults(
+    robot_ip="192.168.1.150",
+    plotter=False,
+    gripper="onrobot",
+    )
+    parser.description = "Chess playing robot madness." 
+    parser = getClikArgs(parser)
+    return parser.parse_args()
+
+
 """ ---------- ROBOT MOVEMENT FUNCTIONS ---------- """
 def convert_coords(coords, from_file=False):
     """Convert coord from realsense to robot frame."""
@@ -257,9 +270,9 @@ def update_fen_with_uci(fen, uci, default_promo: str | None = None):
     if move not in board.legal_moves:
         raise ValueError(f"Illegal move {uci} for FEN: {fen}")
 
-    san = board.san(move)   # save SAN before pushing (pretty form like "exd5" or "O-O")
     board.push(move)        # updates everything: castling rights, en passant, clocks
-    return board.fen(), san
+    is_checkmate = board.is_checkmate()
+    return board.fen(), is_checkmate
 
 
 def is_royal_piece(fen, first_move):
@@ -396,9 +409,10 @@ if __name__ == "__main__":
 
     starting_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" #this one has casteling rights for both kings
     #starting_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1" #default fen currently casteling removed. 
+    starting_fen = "5rk1/2p2ppp/bnp1q3/p1bpP3/2P5/1P3NP1/P3QPBP/2B2RK1 b - - 0 1"
     current_fen = starting_fen
     
-    robot_mode = int(input("1. Test basic piece movement.\n2. Test capture move.\n3. Test casteling.\n4. Test en pessant.\n5. Let robot play chess.\n(1, 2, 3, 4, 5): "))
+    robot_mode = int(input("1. Test basic piece movement.\n2. Test capture move.\n3. Test casteling.\n4. Let robot play chess.\n(1, 2, 3, 4): "))
     
     try:
         if robot_mode == 1:
@@ -440,11 +454,8 @@ if __name__ == "__main__":
             move_piece(chess_coord_to_robot_coord(king_start_square,board_coords), chess_coord_to_robot_coord(king_end_square,board_coords), tool_orientation,is_royal_piece(current_fen, king_start_square))
             move_home(start_position, tool_orientation)
 
-        #elif robot_mode == 4:
-            #while True:
-
     
-        elif robot_mode == 5:
+        elif robot_mode == 4:
             while True: 
                 propposed_move = best_move_local(current_fen, think_ms=500, options={"Threads": 4, "Skill Level": 20})
                 logging.info("The best move is: %s", propposed_move)
@@ -474,8 +485,13 @@ if __name__ == "__main__":
                     move_home(start_position, tool_orientation)      
 
                     
-                new_fen, san = update_fen_with_uci(current_fen,propposed_move)
+                new_fen, is_checkmate = update_fen_with_uci(current_fen,propposed_move)
                 current_fen = new_fen
+                logging.info("Current FEN: %s", current_fen)
+
+                if is_checkmate:
+                    logging.info("GAME IS OVER")
+                    break
         else:
 
             logging.CRITICAL("Bad robot mode input. Quitting.")
