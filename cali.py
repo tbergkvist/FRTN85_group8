@@ -12,6 +12,11 @@ from collections import deque
 
 def get_args() -> argparse.Namespace:
     parser = getMinimalArgParser()
+    parser.set_defaults(
+    robot_ip="192.168.1.150",
+    plotter=False,
+    gripper="onrobot",
+    )
     parser.description = "Chess playing robot calibration."
     parser = getClikArgs(parser)
     parser.add_argument(
@@ -143,8 +148,8 @@ def main():
     try:
         # ----- CORNER POINTS -----
         print("Instructions:")
-        print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
-        print(f"- Press 'q' anytime to finish and solve once you have 4 corners.")
+        print("- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
+        print("- Press 'q' anytime to finish and solve once you have 4 corners.")
         
         corners_px = []
         corners_rs = []
@@ -207,8 +212,8 @@ def main():
 
         # ----- ROBOT POINTS -----
         print("Instructions:")
-        print(f"- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
-        print(f"- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
+        print("- Click a pixel to select (x, y), press 'c' to capture the RealSense point.")
+        print("- Press 'q' anytime to finish and solve once you have at least {args.min_pairs} pairs.")
      
         points_rs = []
         points_robot = []
