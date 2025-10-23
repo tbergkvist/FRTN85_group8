@@ -39,7 +39,7 @@ def convert_coords(coords, from_file=False):
 
 def get_grip_positions(coords, royal_offset=False):
     """Return above, on, and place positions relative to the given point."""
-    offset = 0.05 if royal_offset else 0
+    offset = 0.025 if royal_offset else 0
 
     c = np.asarray(coords, dtype=float).copy()
     above = c + np.array([0.01, 0.0, 0.25 + offset])
@@ -102,7 +102,7 @@ def move_home(initial_position, tool_orientation):
     logging.info("Has moved to inital pose: [%.3f, %.3f, %.3f]", *initial_position)
 
 
-def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1, trash_coord=np.array([0.4, -0.1, 0.3])):
+def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=1.0, trash_coord=np.array([0.4, -0.1, 0.3])):
     """Picks up piece at piece_coords, throws it in trash.""" 
  
     above, on, place = get_grip_positions(piece_coord, is_royal)
@@ -125,12 +125,11 @@ def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0
     logging.info("Has lifted the piece to [%.3f, %.3f, %.3f]", *above)
     T_w_home = pin.SE3(tool_orientation, start_position)
     moveL(args, robot, T_w_home)
+    zero_robot_vel(robot, args)
     T_w_trash = pin.SE3(tool_orientation, trash_coord)
     moveL(args, robot, T_w_trash)
     zero_robot_vel(robot, args)
     robot.openGripper()
-    time.sleep(gripper_sleep)
-    robot.closeGripper()
     time.sleep(gripper_sleep)
     logging.info("Has moved the piece to the trash: [%.3f, %.3f, %.3f]", *trash_coord)
 
@@ -337,7 +336,7 @@ if __name__ == "__main__":
                 start_square = np.append(square_xy(parts[0], board_coords), 0.05)
                 end_square = np.append(square_xy(parts[1], board_coords), 0.05)
                 
-                royal = False
+                royal = True
                 capture_piece(end_square, tool_orientation, royal)
                 move_home(start_position, tool_orientation)
                 move_piece(start_square, end_square, tool_orientation, royal)
