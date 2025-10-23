@@ -8,14 +8,14 @@ import pinocchio as pin
 import argparse
 import numpy as np
 import time
-import cv2
-import threading
 import logging
 import chess
+
 
 """ ---------- DEFINE GLOBAL CONSTANTS ---------- """
 FILES = list("abcdefgh")
 RANKS = [str(i) for i in range(1, 9)]
+
 
 """ ---------- ROBOT MOVEMENT FUNCTIONS ---------- """
 def convert_coords(coords, from_file=False):
@@ -37,16 +37,14 @@ def convert_coords(coords, from_file=False):
     return (H @ np.array([x, y, z, 1]))[:3]
 
 
-#TODO might need to change the offset to calc from 0 instead
 def get_grip_positions(coords, royal_offset=False):
     """Return above, on, and place positions relative to the given point."""
-    offset = 0
-    if royal_offset:
-        offset = 0.05
+    offset = 0.05 if royal_offset else 0
+
     c = np.asarray(coords, dtype=float).copy()
-    above = c + np.array([0.01, 0.0, 0.25+offset])
-    on = c + np.array([0.01, 0.0, 0.15+offset])
-    place = c + np.array([0.01, 0.0, 0.155+offset])
+    above = c + np.array([0.01, 0.0, 0.25 + offset])
+    on = c + np.array([0.01, 0.0, 0.15 + offset])
+    place = c + np.array([0.01, 0.0, 0.155 + offset])
     return above, on, place
 
 
@@ -59,19 +57,19 @@ def zero_robot_vel(robot, args):
 def move_piece(piece_coords, target_coords, tool_orientation, is_royal=False, gripper_sleep=1.0):
     """Picks up piece at piece_coords, moves it to target coords.
     """
-    above, on, place = get_grip_positions(move_piece_coords, is_royal)
+    above, on, place = get_grip_positions(piece_coords, is_royal)
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.openGripper()
-    logging.info("Has moved to position above the piece: ", above)
+    logging.info("Has moved to position above the piece: [%.3f, %.3f, %.3f]", *above)
 
     T_w_goal = pin.SE3(tool_orientation, on)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.closeGripper()
     time.sleep(gripper_sleep)
-    logging.info("Has moved to position on the piece and closed gripper: ", on)
+    logging.info("Has moved to position on the piece and closed gripper: [%.3f, %.3f, %.3f]", *on)
 
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
@@ -82,64 +80,63 @@ def move_piece(piece_coords, target_coords, tool_orientation, is_royal=False, gr
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has moved the piece to above new position: ", above)
+    logging.info("Has moved the piece to above new position: [%.3f, %.3f, %.3f]", *above)
 
     T_w_goal = pin.SE3(tool_orientation, place)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.openGripper()
     time.sleep(gripper_sleep)
-    logging.info("Has put down the piece at: ", place)
+    logging.info("Has put down the piece at: [%.3f, %.3f, %.3f]", *place)
 
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has moved the robot back to the above position: ", above)
+    logging.info("Has moved the robot back to the above position: [%.3f, %.3f, %.3f]", *above)
 
 
-def move_home(tool_orientation, initial_position):
+def move_home(initial_position, tool_orientation):
     T_w_goal = pin.SE3(tool_orientation, initial_position)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has moved to inital pose: ", initial_position)
+    logging.info("Has moved to inital pose: [%.3f, %.3f, %.3f]", *initial_position)
 
 
-def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1):
-    """Picks up piece at piece_coords, throws it in trash."""
-    trash_coord = np.array([0.3, 0.0, 0.25])#TODO set value of thus    
-    T_w_trash = pin.SE3(tool_orientation, trash_coord)
+def capture_piece(piece_coord, tool_orientation, is_royal=False, gripper_sleep=0.1, trash_coord=np.array([0.3, 0.0, 0.25])):
+    """Picks up piece at piece_coords, throws it in trash.""" 
  
     above, on, place = get_grip_positions(piece_coord, is_royal)
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.openGripper()
-    logging.info("Has moved to position above the piece: ", above)
+    logging.info("Has moved to position above the piece: [%.3f, %.3f, %.3f]", *above)
 
     T_w_goal = pin.SE3(tool_orientation, on)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
     robot.closeGripper()
     time.sleep(gripper_sleep)
-    logging.info("Has moved to position on the piece and closed gripper: ", on)
+    logging.info("Has moved to position on the piece and closed gripper: [%.3f, %.3f, %.3f]", *on)
 
     T_w_goal = pin.SE3(tool_orientation, above)
     moveL(args, robot, T_w_goal)
     zero_robot_vel(robot, args)
-    logging.info("Has lifted the piece to", above)
+    logging.info("Has lifted the piece to [%.3f, %.3f, %.3f]", *above)
 
+    T_w_trash = pin.SE3(tool_orientation, trash_coord)
     moveL(args, robot, T_w_trash)
     zero_robot_vel(robot, args)
     robot.openGripper()
     time.sleep(gripper_sleep)
     robot.closeGripper()
     time.sleep(gripper_sleep)
-    logging.info("Has moved the piece to the trash: ", trash_coord)
+    logging.info("Has moved the piece to the trash: [%.3f, %.3f, %.3f]", *trash_coord)
 
 
-def extract_corner_coords(from_file = False):
+def extract_corner_coords(from_file=False):
     """Extract the corner coordinates in the robot frame from the file."""
-    if from_file == False:
+    if not from_file:
         return None
 
     corner_coords = np.fromfile(from_file)
@@ -217,6 +214,7 @@ def parse_uci_chess(uci: str):
     promo = m.promotion and chess.piece_symbol(m.promotion).lower()
     return frm, to, promo
 
+
 def update_fen_with_uci(fen, uci, default_promo: str | None = None):
     """
     Apply a UCI move to a FEN and return (new_fen, san).
@@ -263,7 +261,7 @@ def is_capture_move(fen, move):
     try:
         board = chess.Board(fen)
         check_capture_move = chess.Move.from_uci(move.strip().lower())
-        return board.is_capture(move)
+        return board.is_capture(check_capture_move)
     except Exception:
         return False
 
@@ -281,136 +279,6 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-""" ----------- VISION FUNCTIONS ---------- """
-class _Gui:
-    """Very small OpenCV UI that runs in a background thread."""
-    def __init__(self, window_name="Detections"):
-        self.window_name = window_name
-        self._latest = None
-        self._lock = threading.Lock()
-        self._stop = threading.Event()
-        self._th = threading.Thread(target=self._loop, daemon=True)
-
-    def start(self):
-        self._th.start()
-
-    def update(self, frame_bgr):
-        # Accepts a BGR frame to show
-        with self._lock:
-            self._latest = frame_bgr
-
-    def stop(self):
-        self._stop.set()
-        self._th.join(timeout=1.0)
-        try:
-            cv2.destroyWindow(self.window_name)
-        except Exception:
-            pass
-
-    def _loop(self):
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        while not self._stop.is_set():
-            with self._lock:
-                frame = self._latest
-            if frame is not None:
-                cv2.imshow(self.window_name, frame)
-            # Keep UI responsive and allow closing the window or pressing q or Esc
-            key = cv2.waitKey(1) & 0xFF
-            if key in (27, ord('q')):
-                self._stop.set()
-                break
-            time.sleep(0.1)
-
-
-def _render_pieces_overlay(pieces):
-    """
-    Draw bounding boxes and labels on pieces['color_frame'] and return BGR image.
-    Supports BBox as either normalized [x, y, w, h] or absolute [x1, y1, x2, y2].
-    """
-    img = pieces.get("color_frame")
-    if img is None:
-        return None
-
-    img = np.asarray(img)
-    if img.ndim == 2:
-        img_vis = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    else:
-        img_vis = img.copy()
-
-    h, w = img_vis.shape[:2]
-    boxes = pieces.get("BBox", [])
-    classes = pieces.get("class", [])
-    confs = pieces.get("confidence", [])
-
-    for i, box in enumerate(boxes):
-        x, y, a, b = box
-        # Assume normalized [x, y, w, h] if a and b are in [0, 1], else treat as [x1, y1, x2, y2]
-        if 0.0 <= a <= 1.0 and 0.0 <= b <= 1.0:
-            x1 = int(x * w)
-            y1 = int(y * h)
-            x2 = int((x + a) * w)
-            y2 = int((y + b) * h)
-        else:
-            x1 = int(x)
-            y1 = int(y)
-            x2 = int(a)
-            y2 = int(b)
-
-        cv2.rectangle(img_vis, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-        cls_name = number2piece.get(classes[i], str(classes[i])) if i < len(classes) else "piece"
-        if i < len(confs):
-            label = f"{cls_name} {confs[i]:.2f}"
-        else:
-            label = f"{cls_name}"
-
-        y_text = max(0, y1 - 5)
-        cv2.putText(img_vis, label, (x1, y_text), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
-
-    return img_vis
-
-
-def show_pieces_gui(pieces, gui):
-    """Render overlay and push to the GUI thread."""
-    frame = _render_pieces_overlay(pieces)
-    if frame is not None:
-        gui.update(frame)
-
-
-
-
-
-number2piece = {
-    0: "black bishop",
-    1: "black king",
-    2: "black knight",
-    3: "black pawn",
-    4: "black queen",
-    5: "black rook",
-    6: "white bishop",
-    7: "white king",
-    8: "white knight",
-    9: "white pawn",
-    10: "white queen",
-    11: "white rook",
-}
-
-piece2number = {
-    "black bishop": 0,
-    "black king": 1,
-    "black knight": 2,
-    "black pawn": 3,
-    "black queen": 4,
-    "black rook": 5,
-    "white bishop": 6,
-    "white king": 7,
-    "white knight": 8,
-    "white pawn": 9,
-    "white queen": 10,
-    "white rook": 11,
-}
-
-
 if __name__ == "__main__":
     
     logging.basicConfig(
@@ -423,10 +291,6 @@ if __name__ == "__main__":
 
     logging.info("Initializing realsense stream.")
     realsense_stream = stream_camera_frame_coords(multiple_pieces=True, piece_conf_thres=0.5)
-
-    # Start GUI thread
-    gui = _Gui("Detections")
-    gui.start()
 
     robot._step()
 
@@ -442,14 +306,14 @@ if __name__ == "__main__":
     board_coords, info = build_board_from_corners(corner_coords)
  
     initial_position = np.array(robot.T_w_e.translation).astype(float)
-    logging.info("Initial position of robot: %s", initial_position)
-    move_home(tool_orientation, initial_position)
+    logging.info("Initial position of robot: [%.3f, %.3f, %.3f]", *initial_position)
+    move_home(initial_position, tool_orientation)
     
     start_position = np.append(square_xy("D4", board_coords), 0.3)
-    move_home(tool_orientation, start_position)
+    move_home(start_position, tool_orientation)
 
     """Is this good to have or should we refactor?"""
-    """Chose mode for the code, manual, robot or vision."""        
+    """Chose mode for the code, manual or robot."""        
     robot_mode = int(input("Manual mode or Robot solo: (1 or 2) "))
     
     try:
@@ -462,10 +326,8 @@ if __name__ == "__main__":
                 end_square = np.append(square_xy(parts[1], board_coords), 0.05)
                 
                 move_piece(start_square, end_square, tool_orientation)            
-                move_home(tool_orientation, start_position)            
-                """Need to test 1. royal piece 2. throw piece"""
+                move_home(start_position, tool_orientation)            
 
- 
         elif robot_mode == 2:
             while True:
                 command = input("Move piece from -> to (ex 'a1b3'): ").lower()
@@ -474,7 +336,11 @@ if __name__ == "__main__":
                 start_square = np.append(square_xy(parts[0], board_coords), 0.05)
                 end_square = np.append(square_xy(parts[1], board_coords), 0.05)
                 
-                capture_piece(start_square, tool_orientation)
+                royal = False
+                capture_piece(end_square, tool_orientation, royal)
+                move_home(start_position, tool_orientation)
+                move_piece(start_square, end_square, tool_orientation, royal)
+                move_home(start_position, tool_orientation)
 
                 """
                 1. Send the setup to StockFish
@@ -484,54 +350,11 @@ if __name__ == "__main__":
                 3. Update the board? Or is that manual?
                 """
         else:
-            while True:
-                """logging.info("Looking at chess board using realsense camera.")
-                pieces = next(realsense_stream)
-                show_pieces_gui(pieces, gui)
+            logging.CRITICAL("Bad robot mode input. Quitting.")
 
-                try:
-                    logging.info(
-                        "Currently seeing these pieces: %s", [number2piece[p] for p in pieces['class']])
-                except Exception:
-                    logging.info("Currently seeing these pieces: %s", pieces)
-
-                piece = None
-                while piece is None:
-                    try:
-                        piece = piece2number[input("Piece to move: ").lower()]
-                    except Exception:
-                        logging.info("Bad input.")
-
-                command = np.array(
-                    [float(val) for val in input("Where to move piece: x.x,y.y: ").split(",")]
-                )
-                command = np.append(command, 0.0)
-                logging.info("Will move the piece this much in x and y: %s", command)
-
-                piece_coords = None
-                if piece in pieces["class"]:
-                    index = pieces["class"].index(piece)
-                    center = pieces["center_point"][index]
-                    piece_coords = convert_coords(center, "./H.txt")
-                    logging.info("Chess piece found at: %s", piece_coords)
-
-                if piece_coords is None:
-                    logging.info("Could not find your piece. Try again.")
-                    continue
-
-                target_coords = np.asarray(piece_coords, dtype=float) + np.asarray(command, dtype=float)
-
-                move_piece(piece_coords, target_coords, tool_orientation)
-
-                move_home(tool_orientation, initial_position)"""
-                
 
     except KeyboardInterrupt:
         logging.info("Shutting down the chessbot.")
-
-    finally:
-        # Ensure GUI thread is cleaned up
-        gui.stop()
 
     if args.real:
         robot.stopRobot()
@@ -541,4 +364,3 @@ if __name__ == "__main__":
 
     if args.save_log:
         robot._log_manager.saveLog()
-
