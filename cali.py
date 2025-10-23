@@ -315,8 +315,10 @@ def main():
     else:
         print("\nNot enough points for calibration error check (need at least 4).")
 
+    print("Done.")
+    quit()
+
+
 
 if __name__ == "__main__":
     main()
-
-
